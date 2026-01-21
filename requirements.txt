@@ -1,0 +1,8 @@
+﻿flask
+ikea-api
+pandas
+pillow
+pydantic
+requests
+torch
+transformers

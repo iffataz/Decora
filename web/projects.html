@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Home - My Flask App{% endblock %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="zxx">
+
+
+<body>
+
+    <!-- Header Section Begin -->
+
+    <!-- Header Section End -->
+
+    <!-- Breadcrumb Section Begin -->
+    <div class="breadcrumb-option spad set-bg" data-setbg="{{ url_for('static', filename='img/breadcrumb-bg.jpg') }}">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12 text-center">
+                    <div class="breadcrumb__text">
+                        <h2>Product Search</h2>
+                        <div class="breadcrumb__links">
+                            <a href="{{ url_for('home') }}">Home</a>
+                            <span>Enter the required colour palette or a picture along with the aesthetic you require</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Breadcrumb Section End -->
+
+    <!-- choose/ select the input-->
+  
+    <section class="blog spad">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="blog__item__list">
+                        <div class="blog__item">
+                            
+                            <h2>Choose an Option</h2>
+                            
+                        </div>
+                        
+                        <div class="blog__item">
+                            
+                            <h2>Enter the URL to an image that inspires!</h2>
+                            <form action="/process_url" method="POST" >
+                            <div class="blog__item__text">
+                                <label>Your URL goes here:</label>
+                                <input type="url" name="url"><br>
+                                <label>Article of furniture:</label>
+                                <input type="text" name="art">
+                                <input type="submit">
+                            </div>
+                        </form>
+                        </div>
+
+                            
+                            </div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                </div>
+                
+            </div>
+        </div>
+    </section>
+    <!-- Selection Section End -->
+
+</body>
+{% endblock %}
+
+</html>

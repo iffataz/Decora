@@ -1,0 +1,151 @@
+<!doctype html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="Staging Template">
+    <meta name="keywords" content="Staging, unica, creative, html">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Decora</title>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Aldrich&display=swap" rel="stylesheet">
+
+    <!-- Css Styles -->
+    <link rel="stylesheet" href="{{url_for('static',filename='bootstrap.min.css')}}" type="text/css">
+    <link rel="stylesheet" href="{{url_for('static',filename='font-awesome.min.css')}}" type="text/css">
+    <link rel="stylesheet" href="{{url_for('static',filename='elegant-icons.css')}}" type="text/css">
+    <link rel="stylesheet" href="{{url_for('static',filename='owl.carousel.min.css')}}" type="text/css">
+    <link rel="stylesheet" href="{{url_for('static',filename='slicknav.min.css')}}" type="text/css">
+    <link rel="stylesheet" href="{{url_for('static',filename='slick.css')}}" type="text/css">
+    <link rel="stylesheet" href="{{url_for('static',filename='style.css')}}" type="text/css">
+    <link rel="stylesheet" href="{{url_for('static',filename='styles1.css')}}" type="text/css">
+</head>
+<!-- Page Preloder -->
+<!-- <div id="preloder">
+    <div class="loader"></div>
+</div> -->
+
+<!-- Offcanvas Menu Begin -->
+<div class="offcanvas-menu-overlay"></div>
+<div class="offcanvas-menu-wrapper">
+    <div class="offcanvas__logo">
+        <a href="#"><img src="{{ url_for('static', filename='img/decora1.png') }}" alt=""></a>
+    </div>
+    <div id="mobile-menu-wrap"></div>
+    <div class="offcanvas__widget">
+        <span>Call us for any questions</span>
+        <h4>+61 458 680 392</h4>
+    </div>
+</div>
+<!-- Offcanvas Menu End -->
+
+<header class="header">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-3">
+                <div class="header__logo">
+                    <a href="#"><img src="{{ url_for('static', filename='img/decora1.png') }}" alt=""></a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <nav class="header__menu mobile-menu">
+                    <ul>
+                        <li class="active"><a href="{{ url_for('home') }}">Home</a></li>
+                        <li><a href="{{ url_for('search') }}">Products</a></li>
+                        <li><a href="{{ url_for('aboutus') }}">About</a></li>
+                    </ul>
+                </nav>
+            </div>
+            <div class="col-lg-3">
+                <div class="header__widget">
+                    <span>Call us for any questions</span>
+                    <h4>+01 123 456 789</h4>
+                </div>
+            </div>
+        </div>
+        <div class="canvas__open"><i class="fa fa-bars"></i></div>
+    </div>
+</header>
+
+
+<section class="content">
+ 
+  {% for message in get_flashed_messages() %}
+    <div class="flash">{{ message }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+
+  <section class="footer" data-setbg="{{ url_for('static', filename='img/footer-bg.jpg') }}" style="background-image: url('{{ url_for('static', filename='img/footer-bg.jpg') }}');">
+    <div class="container">
+        <div class="row">
+              <div class="col-lg-3 col-md-6 col-sm-6" id="company">
+                  <img src="{{ url_for('static', filename='img/decora1.png') }}" alt="" class="logo">
+
+              </div>
+              <div class="row">
+              <div class="col-lg-2 offset-lg-1 col-md-3 col-sm-6" id="company">
+                  <img src="{{ url_for('static', filename='img/logo/logo-1.png') }}" alt="" class="logo">
+                  <img src="{{ url_for('static', filename='img/logo/logo-2.png') }}" alt="" class="logo">
+                  <p>
+                    Explore beyond limits, as our app seamlessly searches through all stores to present you with the 
+                    best-suited pieces. Your dream home knows no boundaries! 
+                  </p>
+                  
+              </div>
+
+              <div class="col-lg-2 col-md-3 col-sm-6">
+                <div class="footer__widget">
+                    <h6>Services</h6>
+                    <ul>
+                        <li><a href="{{ url_for('home') }}">Home</a></li>
+                        <li><a href="{{ url_for('aboutus') }}">About Us</a></li>
+                    </ul>
+                </div>
+            </div>
+
+              <div class="col-lg-4 col-md-6 col-sm-6">
+                <div class="footer__address">
+                    <h6>Get In Touch</h6>
+                    <p>Monash University <br />Clayton Campus</p>
+                    <ul>
+                        <li>Info.colorlib@gmail.com</li>
+                        <li>+84 123 456 789</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                <div class="row">
+                    <div class="col-lg-8 col-md-7">
+                        <div class="copyright__text">
+                            <p>Copyright © <script>
+                                document.write(new Date().getFullYear());
+                            </script> All rights reserved | This template is made with <i class="fa fa-heart-o"
+                            aria-hidden="true"></i> by <a href="https://colorlib.com"
+                            target="_blank">Colorlib</a>
+                        </p>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-5">
+                    <div class="copyright__widget">
+                        <a href="#">Terms of use</a>
+                        <a href="#">Privacy Policy</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+
+    </div>
+
+</section>
+</section>
+<!-- Js Plugins -->
+<script src="{{url_for('static',filename='js/jquery-3.3.1.min.js')}}"></script>
+<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/jquery.slicknav.js') }}"></script>
+<script src="{{ url_for('static', filename='js/owl.carousel.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/slick.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>

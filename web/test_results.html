@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Home - My Flask App{% endblock %}
+
+{% block content %}
+
+
+<html>
+
+<body>
+  {% for item in my_list %}
+  <button type="button" class="btn btn-primary custom-button" onclick="window.location.href='{{ item[1] }}'">
+    <img src="{{ item[2] }}" alt="Button Image" class="img-fluid button-image">
+    <br>
+    <span class="button-text">{{ item[0] }}</span>
+  </button>
+{% endfor %}
+  
+    {% endblock %}
+
+  </body>
+  </html>

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Home - My Flask App{% endblock %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="zxx">
+
+<body>
+
+    <!-- Hero Section Begin -->
+    <section class="hero">
+        <div class="hero__slider owl-carousel">
+            <div class="hero__items set-bg" data-setbg="{{ url_for('static', filename='img/hero-1.jpg') }}", style="background-image: url('{{ url_for('static', filename='img/hero-1.jpg') }}');">
+                <div class="hero__text">
+                    <h2>CRAFTING YOUR SPACE</h2>
+                    <a href="{{ url_for('search') }}" class="primary-btn">Explore Now!</a>
+                </div>
+            </div>
+            <div class="hero__items set-bg" data-setbg="{{ url_for('static', filename='img/hero-1.jpg') }}">
+                <div class="hero__text">
+                    <h2>CRAFTING YOUR SPACE</h2>
+                    <a href="{{ url_for('search') }}" class="primary-btn">Explore Now!</a>
+                </div>
+            </div>
+        </div>
+
+    </section>
+    <!-- Hero Section End -->
+
+    <!-- About Section Begin -->
+    <section class="about spad">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="about__text">
+                        <div class="section-title">
+                            <span>who are we</span>
+                            <h2>We bring to you the ultimate decor experience</h2>
+                        </div>
+                        <div class="about__para__text">
+                            <p>Unleash the freedom of choice! Our platform scours every corner of the city, not confined 
+                                to a single store, ensuring you access a diverse range of options. Your ideal furniture match
+                                could be waiting in any shop, and we're committed to finding it for you.
+                                Once the suggested furniture is added to the wishlist, you will be notified of the price changes
+                                so that the product can be purchased at the most affordable cost.</p>
+                            <p>Highest level of integrity, Fair and ethical business practice,
+                                Highest level of stakeholder satisfaction and customer loyalty,
+                                  Continuous learning and innovation</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="about__pic">
+                        <div class="about__pic__inner">
+                            <img src="{{ url_for('static', filename='img/about-pic.jpg') }}" alt="">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- About Section End -->
+
+    <!-- Team Section Begin -->
+    <section class="team spad">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-9 col-md-8 col-sm-6">
+                    <div class="section-title">
+                        <span>Our Team</span>
+                        <h2>MISFIT</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-4 col-md-6">
+                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/ishan.jpg') }}">
+                        <div class="team__text">
+                            <div class="team__title">
+                                <h5>Ishan Ingolikar</h5>
+                                
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/tavishi.jpg') }}">
+                        <div class="team__text">
+                            <div class="team__title">
+                                <h5>Tavishi Saxena</h5>
+                              
+                            </div>
+                            
+                           
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/shubh.jpg') }}">
+                        <div class="team__text">
+                            <div class="team__title">
+                                <h5>Shubh Bajpai</h5>
+                               
+                            </div>
+                            
+                            
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/iffat.jpg') }}">
+                        <div class="team__text">
+                            <div class="team__title">
+                                <h5>Iffat Abdul Azeez</h5>
+                               
+                            </div>
+                            
+                            
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/manashe.jpg') }}">
+                        <div class="team__text">
+                            <div class="team__title">
+                                <h5>Anne Tillekeratne</h5>
+                               
+                            </div>
+                            
+                            
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/fahad.jpg') }}">
+                        <div class="team__text">
+                            <div class="team__title">
+                                <h5>Fahad Assadi</h5>
+                               
+                            </div>
+                          
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Team Section End -->
+
+    <!-- Call To Action Section Begin -->
+    <section class="callto spad set-bg" data-setbg="{{ url_for('static', filename='img/call-bg.jpg') }}">
+        <div class="container">
+            <div class="row d-flex justify-content-center">
+                <div class="col-lg-10 text-center">
+                    <div class="callto__text">
+                        <span>Why choose us?</span>
+                        <h2>Our Ability To Deliver Outstanding Results For Our Clients Starts With Our Team Of Smart.
+                        </h2>
+                        <a href="#" class="primary-btn">Contact Us</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Call To Action Section End -->
+</body>
+{% endblock %}
+
+</html>
