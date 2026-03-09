@@ -1,39 +1,49 @@
 import os
-import base64
 import requests
 from io import BytesIO
 from PIL import Image
-
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/dandelin/vilt-b32-finetuned-vqa"
+import google.generativeai as genai
 
 questions_inb = ["color", "type of design furniture", "describe vibe"]
 
 
-def _image_to_base64(url: str) -> str:
+def _fetch_image(url: str) -> Image.Image:
     resp = requests.get(url, stream=True, timeout=10)
     resp.raise_for_status()
     img = Image.open(BytesIO(resp.content))
     if img.mode != "RGB":
         img = img.convert("RGB")
-    buf = BytesIO()
-    img.save(buf, format="JPEG")
-    return base64.b64encode(buf.getvalue()).decode("utf-8")
+    return img
 
 
 def query(url: str, question: str, k: int, foreign: bool = True):
-    token = os.environ.get("HF_API_TOKEN")
-    if not token:
-        raise RuntimeError("HF_API_TOKEN environment variable not set")
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY environment variable not set")
 
-    image_b64 = _image_to_base64(url)
-    response = requests.post(
-        HF_API_URL,
-        headers={"Authorization": f"Bearer {token}"},
-        json={
-            "inputs": {"question": question, "image": image_b64},
-            "parameters": {"top_k": k},
-        },
-        timeout=60,
-    )
-    response.raise_for_status()
-    return response.json()
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-2.0-flash-lite")
+    img = _fetch_image(url)
+
+    if k == 1:
+        # Binary yes/no check used when matching IKEA products against the room
+        prompt = (
+            f"{question} "
+            "Reply with only the single word 'yes' or 'no', nothing else."
+        )
+        response = model.generate_content([img, prompt])
+        answer = response.text.strip().lower()
+        answer = "yes" if "yes" in answer else "no"
+        return [{"answer": answer, "score": 1.0}]
+    else:
+        # Descriptive query — return k short answers
+        prompt = (
+            f"Look at this room or furniture image and answer: '{question}'. "
+            f"Give exactly {k} different short answers (1–3 words each), "
+            "separated by commas. Output only the answers, nothing else."
+        )
+        response = model.generate_content([img, prompt])
+        answers = [a.strip() for a in response.text.strip().split(",")][:k]
+        while len(answers) < k:
+            answers.append(answers[-1] if answers else "unknown")
+        return [{"answer": a, "score": 1.0} for a in answers]
