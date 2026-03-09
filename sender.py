@@ -1,8 +1,6 @@
 import decora
 from decora import questions_inb
-import requests
 from apiloader import search_load
-import pandas as pd
 
 
 def gen_everything(url_specific, art):
