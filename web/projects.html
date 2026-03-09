@@ -1,17 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Home - My Flask App{% endblock %}
+{% block title %}Product Search - Decora{% endblock %}
 
 {% block content %}
-<!DOCTYPE html>
-<html lang="zxx">
-
-
-<body>
-
-    <!-- Header Section Begin -->
-
-    <!-- Header Section End -->
-
     <!-- Breadcrumb Section Begin -->
     <div class="breadcrumb-option spad set-bg" data-setbg="{{ url_for('static', filename='img/breadcrumb-bg.jpg') }}">
         <div class="container">
@@ -30,48 +20,42 @@
     </div>
     <!-- Breadcrumb Section End -->
 
-    <!-- choose/ select the input-->
-  
     <section class="blog spad">
         <div class="container">
             <div class="row">
                 <div class="col-lg-8">
                     <div class="blog__item__list">
                         <div class="blog__item">
-                            
                             <h2>Choose an Option</h2>
-                            
-                        </div>
-                        
-                        <div class="blog__item">
-                            
-                            <h2>Enter the URL to an image that inspires!</h2>
-                            <form action="/process_url" method="POST" >
-                            <div class="blog__item__text">
-                                <label>Your URL goes here:</label>
-                                <input type="url" name="url"><br>
-                                <label>Article of furniture:</label>
-                                <input type="text" name="art">
-                                <input type="submit">
-                            </div>
-                        </form>
                         </div>
 
-                            
-                            </div>
-                            
+                        <div class="blog__item">
+                            <h2>Enter the URL to an image that inspires!</h2>
+                            <form action="/process_url" method="POST" id="search-form">
+                                <div class="blog__item__text">
+                                    <label>Your URL goes here:</label>
+                                    <input type="url" name="url" required><br>
+                                    <label>Article of furniture:</label>
+                                    <input type="text" name="art" required maxlength="50">
+                                    <input type="submit" value="Search">
+                                </div>
+                            </form>
                         </div>
-                        
                     </div>
-                    
                 </div>
-                
             </div>
         </div>
     </section>
-    <!-- Selection Section End -->
 
-</body>
+    <!-- Loading overlay shown while VQA inference runs -->
+    <div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:9999; text-align:center; padding-top:20%;">
+        <div class="spinner-border text-dark" role="status" style="width:3rem; height:3rem;"></div>
+        <p style="margin-top:1rem; font-size:1.2rem; font-family:'Poppins',sans-serif;">Analysing your room&hellip; this takes about 30 seconds.</p>
+    </div>
+
+    <script>
+        document.getElementById('search-form').addEventListener('submit', function () {
+            document.getElementById('loading-overlay').style.display = 'block';
+        });
+    </script>
 {% endblock %}
-
-</html>

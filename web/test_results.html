@@ -1,21 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Home - My Flask App{% endblock %}
+{% block title %}Results - Decora{% endblock %}
 
 {% block content %}
+    <!-- Breadcrumb Section Begin -->
+    <div class="breadcrumb-option spad set-bg" data-setbg="{{ url_for('static', filename='img/breadcrumb-bg.jpg') }}">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12 text-center">
+                    <div class="breadcrumb__text">
+                        <h2>Your Results</h2>
+                        <div class="breadcrumb__links">
+                            <a href="{{ url_for('home') }}">Home</a>
+                            <span>Recommended Products</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Breadcrumb Section End -->
 
-
-<html>
-
-<body>
-  {% for item in my_list %}
-  <button type="button" class="btn btn-primary custom-button" onclick="window.location.href='{{ item[1] }}'">
-    <img src="{{ item[2] }}" alt="Button Image" class="img-fluid button-image">
-    <br>
-    <span class="button-text">{{ item[0] }}</span>
-  </button>
-{% endfor %}
-  
-    {% endblock %}
-
-  </body>
-  </html>
+    <section class="blog spad">
+        <div class="container">
+            <div class="row">
+                {% for item in my_list %}
+                <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
+                    <button type="button" class="btn btn-light w-100 h-100 custom-button" onclick="window.open('{{ item[1] }}', '_blank')">
+                        <img src="{{ item[2] }}" alt="{{ item[0] }}" class="img-fluid button-image" style="max-height:200px; object-fit:contain;">
+                        <br>
+                        <span class="button-text">{{ item[0] }}</span>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="row mt-4">
+                <div class="col-12 text-center">
+                    <a href="{{ url_for('search') }}" class="primary-btn">Search Again</a>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
