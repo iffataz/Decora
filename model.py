@@ -1,36 +1,63 @@
-from flask import Flask, render_template, redirect, url_for, request, session
+import os
+import re
+from flask import Flask, render_template, redirect, url_for, request, session, flash
+from dotenv import load_dotenv
 from sender import gen_everything
 
+load_dotenv()
+
 app = Flask(__name__, template_folder='web', static_folder='web/stat')
-app.secret_key = 'super secret key'
+app.secret_key = os.environ['SECRET_KEY']
+
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
+
 @app.route("/aboutus")
 def aboutus():
     return render_template("about.html")
+
 
 @app.route("/search")
 def search():
     return render_template("projects.html")
 
+
 @app.route("/process_url", methods=['POST'])
 def process_url():
-    if request.method == 'POST':
-        session['url'] = request.form['url']
-        session['art'] = request.form['art']
-        print(session['url'],session['art'])
+    url = request.form.get('url', '').strip()
+    art = request.form.get('art', '').strip()
 
+    if not url or not url.startswith(('http://', 'https://')):
+        flash("Please enter a valid image URL starting with http:// or https://")
+        return redirect(url_for('search'))
 
-    return redirect(url_for('result'))  # Example redirect
+    if not art or not re.match(r'^[a-zA-Z0-9 ]{1,50}$', art):
+        flash("Please enter a valid furniture type (letters and spaces only, max 50 characters)")
+        return redirect(url_for('search'))
+
+    session['url'] = url
+    session['art'] = art
+    return redirect(url_for('result'))
+
 
 @app.route("/result")
 def result():
-    dump = gen_everything(session['url'],session['art'])
-    print(dump)
-    return render_template("test_results.html", my_list =dump)
+    url = session.get('url')
+    art = session.get('art')
+    if not url or not art:
+        flash("Please submit the search form first.")
+        return redirect(url_for('search'))
+    try:
+        dump = gen_everything(url, art)
+    except Exception:
+        return render_template("error.html", message="Something went wrong analysing your room. Please try again.")
+    if not dump:
+        return render_template("error.html", message="No matching products found. Try a different image or furniture type.")
+    return render_template("test_results.html", my_list=dump)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
