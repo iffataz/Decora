@@ -4,7 +4,7 @@ import requests
 from io import BytesIO
 from PIL import Image
 
-HF_API_URL = "https://api-inference.huggingface.co/models/dandelin/vilt-b32-finetuned-vqa"
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/dandelin/vilt-b32-finetuned-vqa"
 
 questions_inb = ["color", "type of design furniture", "describe vibe"]
 
