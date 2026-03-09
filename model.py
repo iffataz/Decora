@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 from dotenv import load_dotenv
 from sender import gen_everything
@@ -52,8 +53,9 @@ def result():
         return redirect(url_for('search'))
     try:
         dump = gen_everything(url, art)
-    except Exception:
-        return render_template("error.html", message="Something went wrong analysing your room. Please try again.")
+    except Exception as e:
+        logging.exception("Error in gen_everything")
+        return render_template("error.html", message=f"Something went wrong: {e}")
     if not dump:
         return render_template("error.html", message="No matching products found. Try a different image or furniture type.")
     return render_template("test_results.html", my_list=dump)
