@@ -21,7 +21,7 @@ def _get_model():
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY environment variable not set")
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-2.0-flash-lite")
+    return genai.GenerativeModel("gemini-3.1-flash-lite-preview")
 
 
 def analyse_room(url: str) -> dict:
