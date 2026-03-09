@@ -12,7 +12,7 @@ def gen_everything(url_specific, art):
 
     # Stage 3: score up to 15 products
     scored = []
-    for i in range(min(15, len(search_df))):
+    for i in range(min(10, len(search_df))):
         row = search_df.iloc[i]
         image_url = row['contextualImageUrl'] or row['mainImageUrl']
         if not image_url:
