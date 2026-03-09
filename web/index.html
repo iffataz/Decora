@@ -7,14 +7,14 @@
         <div class="hero__slider owl-carousel">
             <div class="hero__items set-bg" data-setbg="{{ url_for('static', filename='img/hero-1.jpg') }}", style="background-image: url('{{ url_for('static', filename='img/hero-1.jpg') }}');">
                 <div class="hero__text">
-                    <h2>CRAFTING YOUR SPACE</h2>
-                    <a href="{{ url_for('search') }}" class="primary-btn">Explore Now!</a>
+                    <h2>AI-POWERED FURNITURE MATCHING</h2>
+                    <a href="{{ url_for('search') }}" class="primary-btn">Try It Out</a>
                 </div>
             </div>
             <div class="hero__items set-bg" data-setbg="{{ url_for('static', filename='img/hero-1.jpg') }}">
                 <div class="hero__text">
-                    <h2>CRAFTING YOUR SPACE</h2>
-                    <a href="{{ url_for('search') }}" class="primary-btn">Explore Now!</a>
+                    <h2>AI-POWERED FURNITURE MATCHING</h2>
+                    <a href="{{ url_for('search') }}" class="primary-btn">Try It Out</a>
                 </div>
             </div>
         </div>
@@ -29,18 +29,12 @@
                 <div class="col-lg-6">
                     <div class="about__text">
                         <div class="section-title">
-                            <span>who are we</span>
-                            <h2>We bring to you the ultimate decor experience</h2>
+                            <span>what is this</span>
+                            <h2>AI-powered interior design recommendations</h2>
                         </div>
                         <div class="about__para__text">
-                            <p>Unleash the freedom of choice! Our platform scours every corner of the city, not confined
-                                to a single store, ensuring you access a diverse range of options. Your ideal furniture match
-                                could be waiting in any shop, and we're committed to finding it for you.
-                                Once the suggested furniture is added to the wishlist, you will be notified of the price changes
-                                so that the product can be purchased at the most affordable cost.</p>
-                            <p>Highest level of integrity, Fair and ethical business practice,
-                                Highest level of stakeholder satisfaction and customer loyalty,
-                                  Continuous learning and innovation</p>
+                            <p>Upload a photo of your room and Decora uses Google's Gemini vision API to analyse its style, colours, and mood. It then searches the IKEA catalogue and scores each product for fit, surfacing the four best matches.</p>
+                            <p>A personal project exploring multimodal AI for practical, everyday decisions.</p>
                         </div>
                     </div>
                 </div>
@@ -62,62 +56,17 @@
             <div class="row">
                 <div class="col-lg-9 col-md-8 col-sm-6">
                     <div class="section-title">
-                        <span>Our Team</span>
-                        <h2>MISFIT</h2>
+                        <span>Built by</span>
+                        <h2>Iffat Abdul Azeez</h2>
                     </div>
                 </div>
             </div>
             <div class="row">
                 <div class="col-lg-4 col-md-6">
-                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/ishan.jpg') }}">
-                        <div class="team__text">
-                            <div class="team__title">
-                                <h5>Ishan Ingolikar</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/tavishi.jpg') }}">
-                        <div class="team__text">
-                            <div class="team__title">
-                                <h5>Tavishi Saxena</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/shubh.jpg') }}">
-                        <div class="team__text">
-                            <div class="team__title">
-                                <h5>Shubh Bajpai</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/iffat.jpg') }}">
+                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/iffat.jpg') }}" style="background-image: url('{{ url_for('static', filename='img/team/iffat.jpg') }}');">
                         <div class="team__text">
                             <div class="team__title">
                                 <h5>Iffat Abdul Azeez</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/manashe.jpg') }}">
-                        <div class="team__text">
-                            <div class="team__title">
-                                <h5>Anne Tillekeratne</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/fahad.jpg') }}">
-                        <div class="team__text">
-                            <div class="team__title">
-                                <h5>Fahad Assadi</h5>
                             </div>
                         </div>
                     </div>
@@ -133,10 +82,8 @@
             <div class="row d-flex justify-content-center">
                 <div class="col-lg-10 text-center">
                     <div class="callto__text">
-                        <span>Why choose us?</span>
-                        <h2>Our Ability To Deliver Outstanding Results For Our Clients Starts With Our Team Of Smart.
-                        </h2>
-                        <a href="#" class="primary-btn">Contact Us</a>
+                        <span>How it works</span>
+                        <h2>Gemini vision API analyses your room &mdash; then scores IKEA products for style, colour, and mood fit.</h2>
                     </div>
                 </div>
             </div>

@@ -1,10 +1,10 @@
+import json
 import os
+import re
 import requests
 from io import BytesIO
 from PIL import Image
 import google.generativeai as genai
-
-questions_inb = ["color", "type of design furniture", "describe vibe"]
 
 
 def _fetch_image(url: str) -> Image.Image:
@@ -16,34 +16,47 @@ def _fetch_image(url: str) -> Image.Image:
     return img
 
 
-def query(url: str, question: str, k: int, foreign: bool = True):
+def _get_model():
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY environment variable not set")
-
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-3.1-flash-lite-preview")
-    img = _fetch_image(url)
+    return genai.GenerativeModel("gemini-2.0-flash-lite")
 
-    if k == 1:
-        # Binary yes/no check used when matching IKEA products against the room
+
+def analyse_room(url: str) -> dict:
+    """Single Gemini call to extract style, colours, mood, and search keywords from a room image."""
+    model = _get_model()
+    img = _fetch_image(url)
+    prompt = (
+        "Analyse this room image and reply ONLY with valid JSON (no markdown fences) in this exact format:\n"
+        '{"style": "...", "colors": ["...", "...", "..."], "mood": "...", "search_keywords": "..."}\n'
+        "style: interior design style in 2-4 words (e.g. Scandinavian minimalist)\n"
+        "colors: list of 3 dominant colours\n"
+        "mood: overall feel in 3-5 words\n"
+        "search_keywords: 2-4 words for IKEA search"
+    )
+    response = model.generate_content([img, prompt])
+    text = response.text.strip()
+    # Strip accidental ```json fences
+    text = re.sub(r"^```[a-z]*\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    return json.loads(text)
+
+
+def score_product(image_url: str, furniture_type: str, room: dict) -> int:
+    """Ask Gemini to rate how well a product image suits the room. Returns integer 1-10."""
+    try:
+        model = _get_model()
+        img = _fetch_image(image_url)
+        colors = ", ".join(room.get("colors", []))
         prompt = (
-            f"{question} "
-            "Reply with only the single word 'yes' or 'no', nothing else."
+            f"Rate how well this {furniture_type} suits a {room.get('style', 'modern')} room "
+            f"with {colors} colours and a {room.get('mood', 'neutral')} mood. "
+            "Reply with ONLY a single integer from 1 to 10, nothing else."
         )
         response = model.generate_content([img, prompt])
-        answer = response.text.strip().lower()
-        answer = "yes" if "yes" in answer else "no"
-        return [{"answer": answer, "score": 1.0}]
-    else:
-        # Descriptive query — return k short answers
-        prompt = (
-            f"Look at this room or furniture image and answer: '{question}'. "
-            f"Give exactly {k} different short answers (1–3 words each), "
-            "separated by commas. Output only the answers, nothing else."
-        )
-        response = model.generate_content([img, prompt])
-        answers = [a.strip() for a in response.text.strip().split(",")][:k]
-        while len(answers) < k:
-            answers.append(answers[-1] if answers else "unknown")
-        return [{"answer": a, "score": 1.0} for a in answers]
+        match = re.search(r"\d+", response.text.strip())
+        return int(match.group()) if match else 0
+    except Exception:
+        return 0

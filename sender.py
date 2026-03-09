@@ -1,43 +1,34 @@
 import decora
-from decora import questions_inb
 from apiloader import search_load
 
 
 def gen_everything(url_specific, art):
+    # Stage 1: single room analysis
+    room = decora.analyse_room(url_specific)
 
-    search_df = search_load(art)
+    # Stage 2: enriched IKEA search using room keywords + furniture type
+    query = f"{room['search_keywords']} {art}"
+    search_df = search_load(query)
 
-    def metadata_gen(url_inp, k, foreign, questions=questions_inb):
-        tokens = []
-        for question in questions:
-            probs = decora.query(url=url_inp, question=question, k=k, foreign=foreign)
-            for hashmap in probs:
-                tokens.append(hashmap['answer'])
-        return tokens
-
-    tokens_main = metadata_gen(url_specific, 3, True, questions_inb)
-
-    question_string = ''
-    for token_ind in range(len(tokens_main)):
-        question_string += f'Is this {tokens_main[token_ind]} '
-        if not (token_ind == len(tokens_main) - 1):
-            question_string += 'and '
-
-    question_string += '?'
-
-    cand = []
-    for i in range(min(7, len(search_df))):
-        image_url = search_df.iloc[i]['contextualImageUrl']
+    # Stage 3: score up to 15 products
+    scored = []
+    for i in range(min(15, len(search_df))):
+        row = search_df.iloc[i]
+        image_url = row['contextualImageUrl'] or row['mainImageUrl']
         if not image_url:
-            image_url = search_df.iloc[i]["mainImageUrl"]
-        binary = metadata_gen(image_url, 1, True, [question_string])
-        if binary[0] == 'yes':
-            cand.append(i)
+            continue
+        score = decora.score_product(image_url, art, room)
+        scored.append({
+            "name": row['name'],
+            "url": row['pipUrl'],
+            "image": row['mainImageUrl'],
+            "score": score,
+            "price": row['salesPrice'],
+            "rating": row['ratingValue'],
+            "rating_count": row['ratingCount'],
+        })
 
-    send = []
-    for el in cand:
-        if len(send) == 4:
-            break
-        send.append([search_df.iloc[el]['name'], search_df.iloc[el]['pipUrl'], search_df.iloc[el]['mainImageUrl']])
-
-    return send
+    # Stage 4: filter score >= 6, sort descending, return top 4
+    qualified = [p for p in scored if p['score'] >= 6]
+    qualified.sort(key=lambda x: x['score'], reverse=True)
+    return qualified[:4]

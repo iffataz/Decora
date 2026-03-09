@@ -25,10 +25,25 @@
             <div class="row">
                 {% for item in my_list %}
                 <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
-                    <button type="button" class="btn btn-light w-100 h-100 custom-button" onclick="window.open('{{ item[1] }}', '_blank')">
-                        <img src="{{ item[2] }}" alt="{{ item[0] }}" class="img-fluid button-image" style="max-height:200px; object-fit:contain;">
+                    <button type="button" class="btn btn-light w-100 h-100 custom-button" onclick="window.open('{{ item.url }}', '_blank')">
+                        <img src="{{ item.image }}" alt="{{ item.name }}" class="img-fluid button-image" style="max-height:200px; object-fit:contain;">
                         <br>
-                        <span class="button-text">{{ item[0] }}</span>
+                        <span class="button-text">{{ item.name }}</span>
+                        <br>
+                        <span class="badge" style="background-color:#dfa667; color:#fff; font-size:0.85rem; padding:4px 8px; border-radius:4px;">
+                            Match: {{ item.score }}/10
+                        </span>
+                        {% if item.price %}
+                        <br>
+                        <span style="font-size:0.9rem; color:#333; margin-top:4px; display:inline-block;">AU ${{ item.price }}</span>
+                        {% endif %}
+                        {% if item.rating %}
+                        <br>
+                        <span style="font-size:0.85rem; color:#666;">
+                            &#9733; {{ "%.1f"|format(item.rating) }}
+                            {% if item.rating_count %}({{ item.rating_count }}){% endif %}
+                        </span>
+                        {% endif %}
                     </button>
                 </div>
                 {% endfor %}

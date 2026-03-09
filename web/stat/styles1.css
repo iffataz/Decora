@@ -11,18 +11,18 @@
 }
 
 .custom-button {
-  background-color: #ff91a4; /* Red background color */
-  color: #fff; /* White text color */
-  border: 2px solid rgb(28, 23, 23); /* Red border */
-  border-radius: 10px; /* Rounded corners */
-  padding: 5px 10px; /* Padding */
-  font-size: 18px; /* Font size */
+  background-color: #dfa667;
+  color: #fff;
+  border: 2px solid rgb(28, 23, 23);
+  border-radius: 10px;
+  padding: 5px 10px;
+  font-size: 18px;
   margin-top: 10%;
 }
 
 .custom-button:hover {
-  background-color: #ff5050; /* Lighter red on hover */
-  border-color: #ff5050; /* Lighter red border on hover */
+  background-color: #c8924e;
+  border-color: #c8924e;
 }
 
 .button-image {
@@ -39,7 +39,7 @@
 }
 
 body {
-  background-color: #ffcccc;
+  background-color: #ffffff;
 }
 
 .card {
