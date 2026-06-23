@@ -7,6 +7,7 @@ from PIL import Image
 from google import genai
 
 MODEL = "gemini-3.1-flash-lite-preview"
+_client: genai.Client | None = None
 
 
 def _fetch_image(url: str) -> Image.Image:
@@ -19,10 +20,13 @@ def _fetch_image(url: str) -> Image.Image:
 
 
 def _get_client() -> genai.Client:
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY environment variable not set")
-    return genai.Client(api_key=api_key)
+    global _client
+    if _client is None:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY environment variable not set")
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 
 def analyse_room(url: str) -> dict:
