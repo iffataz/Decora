@@ -2,7 +2,6 @@
 {% block title %}Results - Decora{% endblock %}
 
 {% block content %}
-    <!-- Breadcrumb Section Begin -->
     <div class="breadcrumb-option spad set-bg" data-setbg="{{ url_for('static', filename='img/breadcrumb-bg.jpg') }}">
         <div class="container">
             <div class="row">
@@ -18,40 +17,40 @@
             </div>
         </div>
     </div>
-    <!-- Breadcrumb Section End -->
 
-    <section class="blog spad">
+    <section class="results-section spad">
         <div class="container">
-            <div class="row">
+            <div class="results-grid">
                 {% for item in my_list %}
-                <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
-                    <button type="button" class="btn btn-light w-100 h-100 custom-button" onclick="window.open('{{ item.url }}', '_blank')">
-                        <img src="{{ item.image }}" alt="{{ item.name }}" class="img-fluid button-image" style="max-height:200px; object-fit:contain;">
-                        <br>
-                        <span class="button-text">{{ item.name }}</span>
-                        <br>
-                        <span class="badge" style="background-color:#dfa667; color:#fff; font-size:0.85rem; padding:4px 8px; border-radius:4px;">
-                            Match: {{ item.score }}/10
-                        </span>
-                        {% if item.price %}
-                        <br>
-                        <span style="font-size:0.9rem; color:#333; margin-top:4px; display:inline-block;">AU ${{ item.price }}</span>
-                        {% endif %}
-                        {% if item.rating %}
-                        <br>
-                        <span style="font-size:0.85rem; color:#666;">
-                            &#9733; {{ "%.1f"|format(item.rating) }}
-                            {% if item.rating_count %}({{ item.rating_count }}){% endif %}
-                        </span>
-                        {% endif %}
-                    </button>
-                </div>
+                <a href="{{ item.url }}" target="_blank" class="product-tile">
+                    <div class="product-tile__image-wrap">
+                        <img src="{{ item.image }}" alt="{{ item.name }}" class="product-tile__image">
+                    </div>
+                    <div class="product-tile__body">
+                        <p class="product-tile__name">{{ item.name }}</p>
+                        <div class="product-tile__score">
+                            <div class="score-bar">
+                                <div class="score-bar__fill" style="width: {{ (item.score / 10 * 100)|int }}%"></div>
+                            </div>
+                            <span class="score-label">{{ item.score }}/10 match</span>
+                        </div>
+                        <div class="product-tile__meta">
+                            {% if item.price %}
+                            <span class="product-tile__price">AU ${{ item.price }}</span>
+                            {% endif %}
+                            {% if item.rating %}
+                            <span class="product-tile__rating">
+                                &#9733; {{ "%.1f"|format(item.rating) }}{% if item.rating_count %} ({{ item.rating_count }}){% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </a>
                 {% endfor %}
             </div>
-            <div class="row mt-4">
-                <div class="col-12 text-center">
-                    <a href="{{ url_for('search') }}" class="primary-btn">Search Again</a>
-                </div>
+
+            <div class="results-footer">
+                <a href="{{ url_for('search') }}" class="primary-btn">Search Again</a>
             </div>
         </div>
     </section>
