@@ -316,7 +316,35 @@ body {
     transition: border-color 200ms ease;
 }
 .search-section__input:focus { border-color: #dfa667; }
-.search-section__submit { margin-top: 8px; }
+.search-section__submit,
+.results-footer .primary-btn {
+    background: #1c1714;
+    color: #f5f2ee;
+    padding: 13px 36px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 200ms ease, color 200ms ease;
+    margin-top: 8px;
+    text-decoration: none;
+    display: inline-block;
+}
+.search-section__submit:hover,
+.results-footer .primary-btn:hover {
+    background: #dfa667;
+    color: #1c1714;
+    text-decoration: none;
+}
+/* suppress Colorlib corner-bracket animation on light surfaces */
+.search-section__submit::before,
+.search-section__submit::after,
+.results-footer .primary-btn::before,
+.results-footer .primary-btn::after { display: none; }
 
 /* ── How it works ──────────────────────────────────────── */
 .how-it-works {
