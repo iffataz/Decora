@@ -29,9 +29,8 @@ def _get_client() -> genai.Client:
     return _client
 
 
-def analyse_room(url: str) -> tuple[dict, Image.Image]:
-    """Single Gemini call to extract style, colours, mood, and search keywords from a room image.
-    Returns the analysis dict and the fetched PIL image (reused for scoring)."""
+def analyse_room(url: str) -> dict:
+    """Single Gemini call to extract style, colours, mood, and search keywords from a room image."""
     client = _get_client()
     img = _fetch_image(url)
     prompt = (
@@ -46,30 +45,22 @@ def analyse_room(url: str) -> tuple[dict, Image.Image]:
     text = response.text.strip()
     text = re.sub(r"^```[a-z]*\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
-    data = json.loads(text)
-    required = {"style", "colors", "mood", "search_keywords"}
-    if not required.issubset(data):
-        raise ValueError(f"Gemini response missing keys: {required - data.keys()}")
-    return data, img
+    return json.loads(text)
 
 
-def score_product(image_url: str, furniture_type: str, room_img: Image.Image) -> int:
-    """Direct visual comparison: show Gemini both the room and the product image.
-    Returns an integer 1-10; returns 0 on any error."""
+def score_product(image_url: str, furniture_type: str, room: dict) -> int:
+    """Ask Gemini to rate how well a product image suits the room. Returns integer 1-10."""
     try:
         client = _get_client()
-        product_img = _fetch_image(image_url)
+        img = _fetch_image(image_url)
+        colors = ", ".join(room.get("colors", []))
         prompt = (
-            f"The first image is a room. The second is a {furniture_type}. "
-            "Rate how well this piece fits the room's style, colours, and mood. "
+            f"Rate how well this {furniture_type} suits a {room.get('style', 'modern')} room "
+            f"with {colors} colours and a {room.get('mood', 'neutral')} mood. "
             "Reply with ONLY a single integer from 1 to 10, nothing else."
         )
-        response = client.models.generate_content(
-            model=MODEL, contents=[room_img, product_img, prompt]
-        )
+        response = client.models.generate_content(model=MODEL, contents=[img, prompt])
         match = re.search(r"\d+", response.text.strip())
-        if not match:
-            return 0
-        return max(1, min(10, int(match.group())))
+        return int(match.group()) if match else 0
     except Exception:
         return 0
