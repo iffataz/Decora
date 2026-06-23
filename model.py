@@ -16,16 +16,6 @@ def home():
     return render_template("index.html")
 
 
-@app.route("/aboutus")
-def aboutus():
-    return render_template("about.html")
-
-
-@app.route("/search")
-def search():
-    return render_template("projects.html")
-
-
 @app.route("/process_url", methods=['POST'])
 def process_url():
     url = request.form.get('url', '').strip()
@@ -33,11 +23,11 @@ def process_url():
 
     if not url or not url.startswith(('http://', 'https://')):
         flash("Please enter a valid image URL starting with http:// or https://")
-        return redirect(url_for('search'))
+        return redirect(url_for('home'))
 
     if not art or not re.match(r'^[a-zA-Z0-9 ]{1,50}$', art):
         flash("Please enter a valid furniture type (letters and spaces only, max 50 characters)")
-        return redirect(url_for('search'))
+        return redirect(url_for('home'))
 
     session['url'] = url
     session['art'] = art
@@ -50,7 +40,7 @@ def result():
     art = session.get('art')
     if not url or not art:
         flash("Please submit the search form first.")
-        return redirect(url_for('search'))
+        return redirect(url_for('home'))
     try:
         dump = gen_everything(url, art)
     except Exception as e:

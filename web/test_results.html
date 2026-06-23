@@ -2,20 +2,8 @@
 {% block title %}Results - Decora{% endblock %}
 
 {% block content %}
-    <div class="breadcrumb-option spad set-bg" data-setbg="{{ url_for('static', filename='img/breadcrumb-bg.jpg') }}">
-        <div class="container">
-            <div class="row">
-                <div class="col-lg-12 text-center">
-                    <div class="breadcrumb__text">
-                        <h2>Your Results</h2>
-                        <div class="breadcrumb__links">
-                            <a href="{{ url_for('home') }}">Home</a>
-                            <span>Recommended Products</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="page-heading">
+        <h2>Your Results</h2>
     </div>
 
     <section class="results-section spad">
@@ -50,7 +38,7 @@
             </div>
 
             <div class="results-footer">
-                <a href="{{ url_for('search') }}" class="primary-btn">Search Again</a>
+                <a href="{{ url_for('home') }}" class="primary-btn">Search Again</a>
             </div>
         </div>
     </section>

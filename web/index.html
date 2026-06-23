@@ -1,93 +1,61 @@
 {% extends "base.html" %}
-{% block title %}Home - Decora{% endblock %}
+{% block title %}Decora — AI-powered furniture matching{% endblock %}
 
 {% block content %}
-    <!-- Hero Section Begin -->
-    <section class="hero">
-        <div class="hero__slider owl-carousel">
-            <div class="hero__items set-bg" data-setbg="{{ url_for('static', filename='img/hero-1.jpg') }}", style="background-image: url('{{ url_for('static', filename='img/hero-1.jpg') }}');">
-                <div class="hero__text">
-                    <h2>AI-POWERED FURNITURE MATCHING</h2>
-                    <a href="{{ url_for('search') }}" class="primary-btn">Try It Out</a>
-                </div>
-            </div>
-            <div class="hero__items set-bg" data-setbg="{{ url_for('static', filename='img/hero-1.jpg') }}">
-                <div class="hero__text">
-                    <h2>AI-POWERED FURNITURE MATCHING</h2>
-                    <a href="{{ url_for('search') }}" class="primary-btn">Try It Out</a>
-                </div>
-            </div>
-        </div>
-
-    </section>
-    <!-- Hero Section End -->
-
-    <!-- About Section Begin -->
-    <section class="about spad">
-        <div class="container">
-            <div class="row">
-                <div class="col-lg-6">
-                    <div class="about__text">
-                        <div class="section-title">
-                            <span>what is this</span>
-                            <h2>AI-powered interior design recommendations</h2>
-                        </div>
-                        <div class="about__para__text">
-                            <p>Upload a photo of your room and Decora uses Google's Gemini vision API to analyse its style, colours, and mood. It then searches the IKEA catalogue and scores each product for fit, surfacing the four best matches.</p>
-                            <p>A personal project exploring multimodal AI for practical, everyday decisions.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="about__pic">
-                        <div class="about__pic__inner">
-                            <img src="{{ url_for('static', filename='img/about-pic.jpg') }}" alt="">
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-section__inner">
+            <h1 class="hero-section__heading">AI-powered furniture matching</h1>
+            <p class="hero-section__sub">Upload a room photo. Gemini analyses the style. IKEA products ranked for fit.</p>
+            <a href="#search" class="hero-section__arrow" aria-label="Scroll to search">&#8595;</a>
         </div>
     </section>
-    <!-- About Section End -->
 
-    <!-- Team Section Begin -->
-    <section class="team spad">
-        <div class="container">
-            <div class="row">
-                <div class="col-lg-9 col-md-8 col-sm-6">
-                    <div class="section-title">
-                        <span>Built by</span>
-                        <h2>Iffat Abdul Azeez</h2>
-                    </div>
+    <!-- Search Section -->
+    <section class="search-section" id="search">
+        <div class="search-section__inner">
+            <form action="/process_url" method="POST" id="search-form">
+                <div class="search-section__field">
+                    <label class="search-section__label" for="url">ROOM IMAGE URL</label>
+                    <input class="search-section__input" type="url" id="url" name="url"
+                           placeholder="https://your-room-photo.com/image.jpg" required>
                 </div>
+                <div class="search-section__field">
+                    <label class="search-section__label" for="art">FURNITURE TYPE</label>
+                    <input class="search-section__input" type="text" id="art" name="art"
+                           placeholder="sofa, dining table, lamp…" required maxlength="50">
+                </div>
+                <button type="submit" class="primary-btn search-section__submit">Find matches</button>
+            </form>
+        </div>
+
+        <div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.92); z-index:9999; text-align:center; padding-top:20%;">
+            <div class="spinner-border text-dark" role="status" style="width:3rem; height:3rem;"></div>
+            <p style="margin-top:1rem; font-size:1.1rem; font-family:'Poppins',sans-serif;">Analysing your room&hellip; about 30 seconds.</p>
+        </div>
+
+        <script>
+            document.getElementById('search-form').addEventListener('submit', function () {
+                document.getElementById('loading-overlay').style.display = 'block';
+            });
+        </script>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-it-works">
+        <div class="how-it-works__grid">
+            <div class="how-it-works__step">
+                <span class="how-it-works__num">01 — Analyse</span>
+                <p>Gemini reads your room's style, colours, and mood.</p>
             </div>
-            <div class="row">
-                <div class="col-lg-4 col-md-6">
-                    <div class="team__item set-bg" data-setbg="{{ url_for('static', filename='img/team/iffat.jpg') }}" style="background-image: url('{{ url_for('static', filename='img/team/iffat.jpg') }}');">
-                        <div class="team__text">
-                            <div class="team__title">
-                                <h5>Iffat Abdul Azeez</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="how-it-works__step">
+                <span class="how-it-works__num">02 — Search</span>
+                <p>We query the IKEA catalogue using your room keywords.</p>
+            </div>
+            <div class="how-it-works__step">
+                <span class="how-it-works__num">03 — Score</span>
+                <p>Each product is scored for style, colour, and mood fit. Top 4 shown.</p>
             </div>
         </div>
     </section>
-    <!-- Team Section End -->
-
-    <!-- Call To Action Section Begin -->
-    <section class="callto spad set-bg" data-setbg="{{ url_for('static', filename='img/call-bg.jpg') }}">
-        <div class="container">
-            <div class="row d-flex justify-content-center">
-                <div class="col-lg-10 text-center">
-                    <div class="callto__text">
-                        <span>How it works</span>
-                        <h2>Gemini vision API analyses your room &mdash; then scores IKEA products for style, colour, and mood fit.</h2>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    <!-- Call To Action Section End -->
 {% endblock %}
