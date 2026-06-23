@@ -4,7 +4,9 @@ import re
 import requests
 from io import BytesIO
 from PIL import Image
-import google.generativeai as genai
+from google import genai
+
+MODEL = "gemini-3.1-flash-lite-preview"
 
 
 def _fetch_image(url: str) -> Image.Image:
@@ -16,17 +18,16 @@ def _fetch_image(url: str) -> Image.Image:
     return img
 
 
-def _get_model():
+def _get_client() -> genai.Client:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY environment variable not set")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-3.1-flash-lite-preview")
+    return genai.Client(api_key=api_key)
 
 
 def analyse_room(url: str) -> dict:
     """Single Gemini call to extract style, colours, mood, and search keywords from a room image."""
-    model = _get_model()
+    client = _get_client()
     img = _fetch_image(url)
     prompt = (
         "Analyse this room image and reply ONLY with valid JSON (no markdown fences) in this exact format:\n"
@@ -36,9 +37,8 @@ def analyse_room(url: str) -> dict:
         "mood: overall feel in 3-5 words\n"
         "search_keywords: 2-4 words for IKEA search"
     )
-    response = model.generate_content([img, prompt])
+    response = client.models.generate_content(model=MODEL, contents=[img, prompt])
     text = response.text.strip()
-    # Strip accidental ```json fences
     text = re.sub(r"^```[a-z]*\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
     return json.loads(text)
@@ -47,7 +47,7 @@ def analyse_room(url: str) -> dict:
 def score_product(image_url: str, furniture_type: str, room: dict) -> int:
     """Ask Gemini to rate how well a product image suits the room. Returns integer 1-10."""
     try:
-        model = _get_model()
+        client = _get_client()
         img = _fetch_image(image_url)
         colors = ", ".join(room.get("colors", []))
         prompt = (
@@ -55,7 +55,7 @@ def score_product(image_url: str, furniture_type: str, room: dict) -> int:
             f"with {colors} colours and a {room.get('mood', 'neutral')} mood. "
             "Reply with ONLY a single integer from 1 to 10, nothing else."
         )
-        response = model.generate_content([img, prompt])
+        response = client.models.generate_content(model=MODEL, contents=[img, prompt])
         match = re.search(r"\d+", response.text.strip())
         return int(match.group()) if match else 0
     except Exception:
