@@ -3,7 +3,7 @@ from apiloader import search_load
 
 
 def gen_everything(url_specific, art):
-    room = decora.analyse_room(url_specific)
+    room, room_img = decora.analyse_room(url_specific)
 
     query = f"{room['search_keywords']} {art}"
     search_df = search_load(query)
@@ -15,7 +15,7 @@ def gen_everything(url_specific, art):
         image_url = ctx if isinstance(ctx, str) else row['mainImageUrl']
         if not image_url:
             continue
-        score = decora.score_product(image_url, art, room)
+        score = decora.score_product(image_url, art, room_img)
         scored.append({
             "name": row['name'],
             "url": row['pipUrl'],
