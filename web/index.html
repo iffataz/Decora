@@ -14,11 +14,16 @@
     <!-- Search Section -->
     <section class="search-section" id="search">
         <div class="search-section__inner">
-            <form action="/process_url" method="POST" id="search-form">
+            <form action="/process_url" method="POST" id="search-form" enctype="multipart/form-data">
+                <div class="search-section__field">
+                    <label class="search-section__label" for="photo">ROOM PHOTO</label>
+                    <input class="search-section__input search-section__input--file" type="file" id="photo" name="photo" accept="image/*">
+                </div>
+                <p class="search-section__or">&mdash; or paste an image URL &mdash;</p>
                 <div class="search-section__field">
                     <label class="search-section__label" for="url">ROOM IMAGE URL</label>
                     <input class="search-section__input" type="url" id="url" name="url"
-                           placeholder="https://your-room-photo.com/image.jpg" required>
+                           placeholder="https://your-room-photo.com/image.jpg">
                 </div>
                 <div class="search-section__field">
                     <label class="search-section__label" for="art">FURNITURE TYPE</label>
@@ -35,6 +40,24 @@
         </div>
 
         <script>
+            var photoInput = document.getElementById('photo');
+            var urlInput = document.getElementById('url');
+            photoInput.addEventListener('change', function () {
+                if (photoInput.files.length) {
+                    urlInput.value = '';
+                    urlInput.disabled = true;
+                } else {
+                    urlInput.disabled = false;
+                }
+            });
+            urlInput.addEventListener('input', function () {
+                if (urlInput.value) {
+                    photoInput.value = '';
+                    photoInput.disabled = true;
+                } else {
+                    photoInput.disabled = false;
+                }
+            });
             document.getElementById('search-form').addEventListener('submit', function () {
                 document.getElementById('loading-overlay').style.display = 'block';
             });

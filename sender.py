@@ -4,8 +4,7 @@ import decora
 from apiloader import search_load
 
 
-def gen_everything(url_specific, art):
-    room_img = decora._fetch_image(url_specific)
+def gen_everything(room_img, art):
     room = decora.analyse_room(room_img)
 
     # Two searches: keyword-tailored results first (capped so they can't crowd out

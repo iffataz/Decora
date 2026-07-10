@@ -324,6 +324,19 @@ body {
     transition: border-color 200ms ease;
 }
 .search-section__input:focus { border-color: #dfa667; }
+.search-section__input--file {
+    border: 1px dashed #e8e0d6;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+}
+.search-section__input:disabled { opacity: 0.4; }
+.search-section__or {
+    text-align: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.75rem;
+    color: #8a7d6e;
+    margin: 0 0 24px;
+}
 .search-section__submit,
 .results-footer .primary-btn {
     background: #1c1714;
