@@ -1,3 +1,4 @@
+"""Flask app: search form → /process_url runs the pipeline and renders results."""
 import os
 import re
 import logging

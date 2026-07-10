@@ -1,3 +1,4 @@
+"""IKEA catalogue search (Australia store) returning a validated pandas DataFrame."""
 import ikea_api
 import pandas as pd
 from pydantic import BaseModel
@@ -17,6 +18,11 @@ class ItemModel(BaseModel):
 
 
 def search_load(query: str):
+    """Search IKEA for `query` and return a DataFrame of products and their variants.
+
+    Malformed items are skipped and results are deduped by id; if nothing validates,
+    returns an empty DataFrame that still has the expected columns.
+    """
     constants = ikea_api.Constants(country="au", language="en")
     search = ikea_api.Search(constants)
     endpoint = search.search(query)

@@ -1,3 +1,4 @@
+"""Gemini vision layer: room analysis and batched product scoring (2 calls per search)."""
 import os
 import requests
 from io import BytesIO

@@ -1,3 +1,4 @@
+"""Recommendation pipeline: room analysis → IKEA search → batched visual scoring → top 4."""
 from concurrent.futures import ThreadPoolExecutor
 
 import decora
@@ -5,6 +6,11 @@ from apiloader import search_load
 
 
 def gen_everything(room_img, art):
+    """Recommend up to 4 IKEA products of type `art` for the room in `room_img` (PIL image).
+
+    Makes exactly 2 Gemini calls (analyse + one batched score). Returns a list of dicts
+    with name, url, image, score, reason, price, rating, rating_count — best first.
+    """
     room = decora.analyse_room(room_img)
 
     # Two searches: keyword-tailored results first (capped so they can't crowd out

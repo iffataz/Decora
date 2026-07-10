@@ -1,32 +1,54 @@
 # Decora
 
-Decora is a Flask web app that recommends IKEA furniture for a room. Paste an image URL and a furniture type; Gemini analyses the room's style, colours, and mood, then scores IKEA products for visual compatibility and returns the top matches.
+Decora is a Flask web app that recommends IKEA furniture for a room. Upload a room photo (or paste an image URL) and a furniture type; Gemini looks at the room, then visually compares IKEA candidates against it and returns the top matches — each with a one-sentence reason why it fits.
 
-**Live on Vercel** — two pages: a search form on the home page, and a results page.
+**Live on Vercel** — a search form on the home page, results rendered directly from the submission.
 
 ## How it works
 
 ```
-User submits room URL + furniture type
+User submits room photo/URL + furniture type
         ↓
-analyse_room()   — 1 Gemini vision call → {style, colors, mood, search_keywords}
+analyse_room()    — 1 Gemini vision call → {style, colors, mood, search_keywords}
         ↓
-search_load()    — IKEA catalogue search using room keywords + furniture type
+search_load() ×2  — IKEA search: "{furniture type} {keywords}" (max 6 results)
+                    + plain "{furniture type}" filling to 10 candidates, deduped
         ↓
-score_product()  — up to 10 Gemini calls, one per candidate product image
+score_products()  — 1 batched Gemini call: room photo + all candidate product
+                    images together, scored comparatively (1-10) against a rubric
+                    (colour harmony, style, material, mood) with a per-product reason
         ↓
 Filter score ≥ 6, sort descending → top 4 results
-(falls back to top 4 by score if nothing clears 6)
+(falls back to score ≥ 3 if nothing clears 6; scores 1-2 mean
+ "wrong furniture category" and are never shown)
 ```
 
-Each search makes at most **11 Gemini API calls** — well within the free-tier limit of 15 RPM.
+Each search makes exactly **2 Gemini API calls**, so the free-tier limit of 15 RPM
+allows several searches per minute. A search takes roughly 10–15 seconds; candidate
+product images are fetched in parallel and resized to ≤768 px before being sent.
+
+### Why batched comparative scoring?
+
+Two earlier designs performed worse:
+
+- **Text-proxy scoring** (one call per product against a ~15-word text summary of the
+  room) lost the visual information and produced undiscriminating scores — everything
+  clustered around 7–9.
+- **Pairwise visual scoring** (room + one product per call, commit `a6330a5`, reverted)
+  compared the room against *contextual* product shots — the product staged in a
+  different styled room — so the model effectively compared two rooms.
+
+The current design shows Gemini the room and all candidates' **white-background**
+product shots in a single call, which forces comparative ranking, and instructs it to
+score wrong-category items 1 (IKEA keyword search occasionally returns off-category
+products, e.g. TV benches for a floor-lamp query).
 
 ## Tech stack
 
 | Layer | Tool |
 |-------|------|
 | Backend | Python, Flask |
-| AI | Google Gemini `gemini-3.1-flash-lite-preview` via `google-genai` |
+| AI | Google Gemini `gemini-3.1-flash-lite-preview` via `google-genai` (structured JSON output) |
 | Furniture data | `ikea-api` (Australia store) |
 | Data wrangling | pandas, Pydantic |
 | Frontend | Jinja2 templates, Bootstrap, custom CSS |
@@ -41,19 +63,19 @@ Decora/
 ├── web/
 │   ├── stat/
 │   │   ├── bootstrap.min.css
-│   │   ├── style.css
-│   │   ├── styles1.css
+│   │   ├── style.css      # legacy base stylesheet
+│   │   ├── styles1.css    # BEM styles (search form, product tiles)
 │   │   └── js/
 │   │       ├── bootstrap.min.js
 │   │       └── jquery-3.3.1.min.js
 │   ├── base.html          # Shell: CSS text logo + slim footer
-│   ├── index.html         # Home: hero, search form, how-it-works
-│   ├── test_results.html  # Results: product tile grid
+│   ├── index.html         # Home: hero, search form (photo upload or URL), how-it-works
+│   ├── test_results.html  # Results: product tile grid with score bars and match reasons
 │   └── error.html
-├── apiloader.py           # IKEA search → pandas DataFrame
-├── decora.py              # Gemini vision: analyse_room(), score_product()
-├── model.py               # Flask routes (/, /process_url, /result)
-├── sender.py              # Pipeline: analysis → search → score → rank
+├── apiloader.py           # IKEA search → pandas DataFrame (per-item validation, deduped)
+├── decora.py              # Gemini vision: analyse_room(), score_products()
+├── app.py                 # Flask routes (/, /process_url, /result)
+├── sender.py              # Pipeline: analysis → search → batch-score → rank
 ├── requirements.txt
 ├── vercel.json
 └── .env.example
@@ -75,7 +97,7 @@ cp .env.example .env
 ```
 
 ```bash
-python model.py
+python app.py
 # → http://127.0.0.1:5000
 ```
 
@@ -92,9 +114,18 @@ Configured for Vercel via `vercel.json`. Add `GEMINI_API_KEY` and `SECRET_KEY` i
 
 ## Scoring engine
 
-`decora.py` contains two functions called per search:
+`decora.py` contains the two Gemini calls made per search:
 
-- **`analyse_room(url)`** — fetches the room image, sends it to Gemini with a structured prompt, and returns a JSON dict: `{style, colors, mood, search_keywords}`.
-- **`score_product(image_url, furniture_type, room)`** — fetches a product image and asks Gemini to rate (1–10) how well it suits the room's style, colours, and mood. Returns an integer; returns `0` on any error so the pipeline can continue.
+- **`analyse_room(img)`** — takes a PIL image, returns `{style, colors, mood,
+  search_keywords}` via Gemini structured output (`response_schema`). The keywords are
+  concrete colour/material terms ("white oak", "rattan") rather than style adjectives,
+  because IKEA's keyword search can't match the latter.
+- **`score_products(room_img, room, product_images, furniture_type)`** — one batched
+  call scoring every candidate against the room photo. Returns
+  `[{index, score, reason}, ...]`; scores are clamped to 1–10, duplicate or
+  out-of-range product indices are dropped, and API failures raise to the caller
+  (no silent zero-scores).
 
-A module-level `genai.Client` singleton is reused across all calls in a single request to avoid redundant initialisation.
+Uploads are handled entirely in memory (8 MB cap) — nothing is written to disk, which
+keeps the app compatible with Vercel's serverless filesystem. A module-level
+`genai.Client` singleton is reused across calls.
