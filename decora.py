@@ -24,8 +24,14 @@ class ProductScore(BaseModel):
 
 
 def _fetch_image(url: str) -> Image.Image:
-    resp = requests.get(url, stream=True, timeout=10)
+    MAX_IMAGE_BYTES = 10 * 1024 * 1024
+    resp = requests.get(url, timeout=10)
     resp.raise_for_status()
+    content_length = resp.headers.get("Content-Length")
+    if content_length and int(content_length) > MAX_IMAGE_BYTES:
+        raise ValueError("image too large")
+    if len(resp.content) > MAX_IMAGE_BYTES:
+        raise ValueError("image too large")
     img = Image.open(BytesIO(resp.content))
     if img.mode != "RGB":
         img = img.convert("RGB")
