@@ -8,18 +8,23 @@ def gen_everything(url_specific, art):
     room_img = decora._fetch_image(url_specific)
     room = decora.analyse_room(room_img)
 
-    query = f"{room['search_keywords']} {art}"
-    search_df = search_load(query)
+    # Two searches: keyword-tailored results first (capped so they can't crowd out
+    # the on-category plain search), then plain furniture-type results to fill to 10.
+    keyword_df = search_load(f"{art} {room['search_keywords']}")
+    plain_df = search_load(art)
 
     candidates = []
-    for i in range(len(search_df)):
-        row = search_df.iloc[i]
-        image_url = row['mainImageUrl']
-        if not isinstance(image_url, str) or not image_url:
-            continue
-        candidates.append(row)
-        if len(candidates) == 10:
-            break
+    seen_ids = set()
+    for df, cap in ((keyword_df, 6), (plain_df, 10)):
+        for i in range(len(df)):
+            row = df.iloc[i]
+            image_url = row['mainImageUrl']
+            if not isinstance(image_url, str) or not image_url or row['id'] in seen_ids:
+                continue
+            seen_ids.add(row['id'])
+            candidates.append(row)
+            if len(candidates) >= cap:
+                break
 
     with ThreadPoolExecutor(max_workers=8) as executor:
         fetches = [executor.submit(decora._fetch_image, row['mainImageUrl']) for row in candidates]
@@ -52,8 +57,9 @@ def gen_everything(url_specific, art):
             "rating_count": row['ratingCount'],
         })
 
+    # Fallback keeps mediocre-but-plausible fits; score 1-2 means wrong category, never show those.
     qualified = [p for p in scored if p['score'] >= 6]
     if not qualified:
-        qualified = sorted(scored, key=lambda x: x['score'], reverse=True)
+        qualified = [p for p in scored if p['score'] >= 3]
     qualified.sort(key=lambda x: x['score'], reverse=True)
     return qualified[:4]

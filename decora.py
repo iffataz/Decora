@@ -103,6 +103,8 @@ def score_products(room_img: Image.Image, room: dict, product_images: list[Image
         "IMPORTANT: scores are comparative, not absolute - use the full 1-10 range to DISCRIMINATE "
         "between the products. The best-fitting product(s) should score highest, the worst-fitting "
         "lowest; do not give every product a similar score.\n"
+        f"If a product is clearly not a {furniture_type} (a different furniture category entirely), "
+        "give it a score of 1 and say so in the reason.\n"
         "For each product return its 1-based product number, its score, and a one-sentence reason "
         "written for the end user explaining why it does or doesn't suit the room "
         "(e.g. \"Its light oak frame echoes the floor and warm neutrals of the room.\")."
