@@ -22,13 +22,16 @@
                             </div>
                             <span class="score-label">{{ item.score }}/10 match</span>
                         </div>
+                        {% if item.reason %}
+                        <p class="product-tile__reason">{{ item.reason }}</p>
+                        {% endif %}
                         <div class="product-tile__meta">
                             {% if item.price %}
                             <span class="product-tile__price">AU ${{ item.price }}</span>
                             {% endif %}
-                            {% if item.rating %}
+                            {% if item.rating and item.rating == item.rating %}
                             <span class="product-tile__rating">
-                                &#9733; {{ "%.1f"|format(item.rating) }}{% if item.rating_count %} ({{ item.rating_count }}){% endif %}
+                                &#9733; {{ "%.1f"|format(item.rating) }}{% if item.rating_count and item.rating_count == item.rating_count %} ({{ item.rating_count|int }}){% endif %}
                             </span>
                             {% endif %}
                         </div>

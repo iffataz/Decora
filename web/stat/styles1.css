@@ -93,6 +93,14 @@
     text-transform: uppercase;
 }
 
+.product-tile__reason {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85em;
+    line-height: 1.5;
+    color: #8a7d6e;
+    margin: 0;
+}
+
 .product-tile__meta {
     display: flex;
     align-items: center;
