@@ -18,6 +18,8 @@ def gen_everything(room_img, art):
     keyword_df = search_load(f"{art} {room['search_keywords']}")
     plain_df = search_load(art)
 
+    # cap is a running total across both DataFrames, not a per-DataFrame limit:
+    # keyword results fill candidates up to 6, then plain results top it up to 10.
     candidates = []
     seen_ids = set()
     for df, cap in ((keyword_df, 6), (plain_df, 10)):
@@ -31,9 +33,12 @@ def gen_everything(room_img, art):
             if len(candidates) >= cap:
                 break
 
+    # Fetch all candidate images concurrently (I/O-bound), not sequentially.
     with ThreadPoolExecutor(max_workers=8) as executor:
         fetches = [executor.submit(decora._fetch_image, row['mainImageUrl']) for row in candidates]
 
+    # rows and product_images are kept as parallel lists: a fetch failure skips
+    # appending to both together, so rows[i] always describes product_images[i].
     rows = []
     product_images = []
     for row, future in zip(candidates, fetches):
@@ -48,6 +53,8 @@ def gen_everything(room_img, art):
 
     results = decora.score_products(room_img, room, product_images, art)
 
+    # result["index"] refers to a position in product_images, so rows[index]
+    # is what reunites a Gemini score with the product metadata it belongs to.
     scored = []
     for result in results:
         row = rows[result["index"]]
@@ -62,7 +69,8 @@ def gen_everything(room_img, art):
             "rating_count": row['ratingCount'],
         })
 
-    # Fallback keeps mediocre-but-plausible fits; score 1-2 means wrong category, never show those.
+    # Prefer good fits (>=6); if none scored that well, fall back to mediocre-but-
+    # plausible ones (>=3). A score of 1-2 means wrong category, so never show those.
     qualified = [p for p in scored if p['score'] >= 6]
     if not qualified:
         qualified = [p for p in scored if p['score'] >= 3]
