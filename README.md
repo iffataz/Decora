@@ -4,6 +4,8 @@ Decora is a Flask web app that recommends IKEA furniture for a room. Upload a ro
 
 **Live on Vercel** — a search form on the home page, results rendered directly from the submission.
 
+Demoing it? See the [demo guide](docs/DEMO.md) for a step-by-step walkthrough with talking points.
+
 ## How it works
 
 ```
