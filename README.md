@@ -23,8 +23,10 @@ Filter score ≥ 6, sort descending → top 4 results
  "wrong furniture category" and are never shown)
 ```
 
-Each search makes exactly **2 Gemini API calls**, so the free-tier limit of 15 RPM
-allows several searches per minute. A search takes roughly 10–15 seconds; candidate
+Each search makes exactly **2 Gemini API calls**. Calls use `gemini-3.8-flash` with
+`thinking_level="LOW"` (its lowest supported level) and a 30 s timeout; on a 429/5xx or
+timeout the call is retried once, then sent to `gemini-3.5-flash-lite`. 3.8 Flash's free
+tier allows only ~20 requests/day, so production runs on a billed project. Candidate
 product images are fetched in parallel and resized to ≤768 px before being sent.
 
 ### Why batched comparative scoring?
@@ -48,7 +50,7 @@ products, e.g. TV benches for a floor-lamp query).
 | Layer | Tool |
 |-------|------|
 | Backend | Python, Flask |
-| AI | Google Gemini `gemini-3.1-flash-lite-preview` via `google-genai` (structured JSON output) |
+| AI | Google Gemini `gemini-3.8-flash` (fallback `gemini-3.5-flash-lite`) via `google-genai` (structured JSON output) |
 | Furniture data | `ikea-api` (Australia store) |
 | Data wrangling | pandas, Pydantic |
 | Frontend | Jinja2 templates, Bootstrap, custom CSS |
@@ -105,7 +107,7 @@ python app.py
 
 | Variable | Description |
 |----------|-------------|
-| `GEMINI_API_KEY` | Google AI Studio key (free tier: 500 RPD, 15 RPM) |
+| `GEMINI_API_KEY` | Google AI Studio key from a project with billing enabled (3.8 Flash free tier is ~20 RPD) |
 | `SECRET_KEY` | Flask session secret — any random string |
 
 ## Deployment

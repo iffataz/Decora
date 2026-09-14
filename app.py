@@ -6,6 +6,7 @@ from io import BytesIO
 from flask import Flask, render_template, redirect, url_for, request, flash
 from dotenv import load_dotenv
 from PIL import Image
+from google.genai import errors as genai_errors
 import decora
 from sender import gen_everything
 
@@ -72,6 +73,9 @@ def process_url():
 
     try:
         dump = gen_everything(room_img, art)
+    except genai_errors.APIError:
+        logging.exception("Gemini API error in gen_everything")
+        return render_template("error.html", message="Our AI stylist is busy right now. Please try again in a minute.")
     except Exception as e:
         logging.exception("Error in gen_everything")
         return render_template("error.html", message=f"Something went wrong: {e}")
