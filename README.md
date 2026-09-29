@@ -80,6 +80,8 @@ Decora/
 ├── decora.py              # Gemini vision: analyse_room(), score_products()
 ├── app.py                 # Flask routes (/, /process_url, /result)
 ├── sender.py              # Pipeline: analysis → search → batch-score → rank
+├── eval/                  # Matching eval harness (see eval/README.md)
+├── tests/                 # pytest unit tests
 ├── requirements.txt
 ├── vercel.json
 └── .env.example
@@ -111,6 +113,17 @@ python app.py
 |----------|-------------|
 | `GEMINI_API_KEY` | Google AI Studio key from a project with billing enabled (3.8 Flash free tier is ~20 RPD) |
 | `SECRET_KEY` | Flask session secret — any random string |
+
+## Tests and matching eval
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest            # unit tests, no network or API key needed
+```
+
+`eval/` is a harness for measuring recommendation quality: run the pipeline over a set of
+room photos, label candidates good/ok/bad, and compare runs before and after a change.
+See [eval/README.md](eval/README.md).
 
 ## Deployment
 

@@ -1,0 +1,10 @@
+[
+ {"id": "scandi-living-1", "room": "rooms/scandi-living-1.jpg", "furniture_type": "sofa"},
+ {"id": "scandi-living-1-lamp", "room": "rooms/scandi-living-1.jpg", "furniture_type": "floor lamp"},
+ {"id": "industrial-loft-1", "room": "rooms/industrial-loft-1.jpg", "furniture_type": "coffee table"},
+ {"id": "boho-bedroom-1", "room": "rooms/boho-bedroom-1.jpg", "furniture_type": "rug"},
+ {"id": "dark-moody-study-1", "room": "rooms/dark-moody-study-1.jpg", "furniture_type": "bookcase"},
+ {"id": "coastal-living-1", "room": "rooms/coastal-living-1.jpg", "furniture_type": "armchair"},
+ {"id": "minimal-bedroom-1", "room": "rooms/minimal-bedroom-1.jpg", "furniture_type": "bedside table"},
+ {"id": "url-example", "room": "https://example.com/some-room-photo.jpg", "furniture_type": "dining chair"}
+]
