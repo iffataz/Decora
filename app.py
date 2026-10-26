@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from PIL import Image
 from google.genai import errors as genai_errors
 import decora
+import ratelimit
 from sender import gen_everything
 
 load_dotenv()
@@ -55,6 +56,24 @@ def process_url():
     if not FURNITURE_TYPE_RE.match(art):
         flash("Please enter a valid furniture type (letters, numbers and spaces only, max 50 characters)")
         return redirect(url_for('home'))
+
+    # Metered here: after the cheap checks, so a form typo doesn't cost the
+    # visitor a slot, but before the URL fetch and the two Gemini calls.
+    decision = ratelimit.check(ratelimit.client_ip(request))
+    if not decision.allowed:
+        wait = ratelimit.describe_wait(decision.retry_after)
+        if decision.scope == "global":
+            message = (
+                "Decora has hit its daily search limit, which keeps the AI bill "
+                f"predictable. Please try again in {wait}."
+            )
+        else:
+            message = f"You've run a few searches already. Please try again in {wait}."
+        return (
+            render_template("error.html", heading="Too many searches", message=message),
+            429,
+            {"Retry-After": str(decision.retry_after)},
+        )
 
     if has_photo:
         if not photo.mimetype or not photo.mimetype.startswith('image/'):

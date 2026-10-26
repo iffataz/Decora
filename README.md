@@ -56,6 +56,7 @@ products, e.g. TV benches for a floor-lamp query).
 | Furniture data | `ikea-api` (Australia store) |
 | Data wrangling | pandas, Pydantic |
 | Frontend | Jinja2 templates, hand-written CSS (no framework) |
+| Rate limiting | In-process counters, or Upstash Redis when configured |
 | Deployment | Vercel (serverless) |
 
 ## File structure
@@ -75,6 +76,7 @@ Decora/
 ├── apiloader.py           # IKEA search → pandas DataFrame (per-item validation, deduped)
 ├── decora.py              # Gemini vision: analyse_room(), score_products()
 ├── app.py                 # Flask routes (/, /process_url)
+├── ratelimit.py           # Per-IP + global search limits (in-process or Redis)
 ├── sender.py              # Pipeline: analysis → search → batch-score → rank
 ├── requirements.txt
 ├── vercel.json
@@ -101,12 +103,61 @@ python app.py
 # → http://127.0.0.1:5000
 ```
 
+The rate limits apply locally too, so you get 10 searches an hour by default. While
+developing, put `RATE_LIMIT_PER_IP=0` and `RATE_LIMIT_GLOBAL_PER_DAY=0` in your `.env`.
+
 ## Environment variables
 
-| Variable | Description |
-|----------|-------------|
-| `GEMINI_API_KEY` | Google AI Studio key from a project with billing enabled (3.8 Flash free tier is ~20 RPD) |
-| `SECRET_KEY` | Flask session secret — any random string |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | yes | Google AI Studio key from a project with billing enabled (3.8 Flash free tier is ~20 RPD) |
+| `SECRET_KEY` | yes | Flask session secret — any random string |
+| `RATE_LIMIT_PER_IP` | no | Searches per IP per window (default 10, `0` disables) |
+| `RATE_LIMIT_WINDOW_SECONDS` | no | Length of that window (default 3600) |
+| `RATE_LIMIT_GLOBAL_PER_DAY` | no | Ceiling on searches per day across all visitors (default 200, `0` disables) |
+| `UPSTASH_REDIS_REST_URL` | no | Upstash Redis REST URL — makes the limits exact across instances |
+| `UPSTASH_REDIS_REST_TOKEN` | no | Token for the above |
+| `TRUST_PROXY_HEADERS` | no | `0` to ignore `X-Real-IP` / `X-Forwarded-For` when not behind Vercel |
+
+## Rate limiting
+
+Each search costs two Gemini calls on a billed project, so the endpoint is metered
+(`ratelimit.py`). Two limits apply, both to `POST /process_url` only — browsing the
+site is free:
+
+- **per IP**, 10 searches an hour by default, so one visitor cannot loop the form;
+- **global per day**, 200 by default, so a spread-out or distributed burst still
+  cannot run the bill past a known ceiling. The per-IP limit alone is not spend
+  protection, since IPs are cheap.
+
+Metering happens after the cheap form validation but before the URL fetch and the
+Gemini calls, so a typo in the form costs the visitor nothing while nothing past the
+limit costs you anything. Over-limit requests get HTTP 429 with a `Retry-After`
+header and a page saying roughly how long to wait.
+
+### Choosing a backend
+
+**No configuration** (the default): counters live in each serverless instance's
+memory. There is nothing to set up, but each instance counts only its own requests,
+so the real ceiling is the limit times the number of warm instances, and counters
+reset when an instance recycles. This stops someone looping the form in a browser; it
+will not hold a precise limit.
+
+**Upstash Redis** (set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`):
+counters are shared, so both limits are exact. Its REST API needs no extra dependency
+and holds no connection open, which is what makes it work on serverless. The free tier
+covers this app comfortably. The backend is picked automatically when both variables
+are present.
+
+Either way, if the backend errors the request is **allowed** — a limiter outage
+shouldn't take the site down. Both limits use a fixed window, which costs one round
+trip instead of a sorted-set read but allows up to 2x the limit right at a window
+boundary.
+
+Behind Vercel, the client address comes from `X-Real-IP` (falling back to the leftmost
+`X-Forwarded-For` entry), which Vercel's edge rewrites. Running the app exposed
+directly, a client can send those headers itself, so set `TRUST_PROXY_HEADERS=0` to
+use the socket address only.
 
 ## Deployment
 

@@ -90,6 +90,7 @@ Colour and size variants are included, duplicates are removed by product id, and
 ## Talking points
 
 - **Cheap:** only 2 AI calls per search, whatever the number of products. That's roughly half a cent per search on `gemini-3.8-flash` (an estimate).
+- **Metered:** the endpoint is rate limited per IP (10/hour) with a global daily ceiling, so a public demo link can't run up the AI bill. Over-limit requests get a 429 before anything is spent.
 - **Resilient:** each Gemini call has a 30 s timeout. On an overload or timeout it retries once, then switches to the faster `gemini-3.5-flash-lite`, so the user still gets results. If both fail, they see "Our AI stylist is busy right now. Please try again in a minute." instead of a crash.
 - **Lessons learned:** earlier designs were worse:
   - Scoring each product against a text description of the room lost the visual detail, and every score clustered around 7–9.
