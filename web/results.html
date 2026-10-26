@@ -6,18 +6,20 @@
         <h2>Your Results</h2>
     </div>
 
-    <section class="results-section spad">
+    <section class="spad">
         <div class="container">
             <div class="results-grid">
                 {% for item in my_list %}
-                <a href="{{ item.url }}" target="_blank" class="product-tile">
+                <a href="{{ item.url }}" target="_blank" rel="noopener" class="product-tile">
                     <div class="product-tile__image-wrap">
                         <img src="{{ item.image }}" alt="{{ item.name }}" class="product-tile__image">
                     </div>
                     <div class="product-tile__body">
                         <p class="product-tile__name">{{ item.name }}</p>
                         <div class="product-tile__score">
-                            <div class="score-bar">
+                            <!-- The bar duplicates the adjacent score-label text, so it is
+                                 decorative for assistive tech rather than a progressbar. -->
+                            <div class="score-bar" aria-hidden="true">
                                 <div class="score-bar__fill" style="width: {{ (item.score / 10 * 100)|int }}%"></div>
                             </div>
                             <span class="score-label">{{ item.score }}/10 match</span>
@@ -29,9 +31,9 @@
                             {% if item.price %}
                             <span class="product-tile__price">AU ${{ item.price }}</span>
                             {% endif %}
-                            {% if item.rating and item.rating == item.rating %}
+                            {% if item.rating %}
                             <span class="product-tile__rating">
-                                &#9733; {{ "%.1f"|format(item.rating) }}{% if item.rating_count and item.rating_count == item.rating_count %} ({{ item.rating_count|int }}){% endif %}
+                                &#9733; {{ "%.1f"|format(item.rating) }}{% if item.rating_count %} ({{ item.rating_count }}){% endif %}
                             </span>
                             {% endif %}
                         </div>

@@ -1,8 +1,30 @@
 """Recommendation pipeline: room analysis → IKEA search → batched visual scoring → top 4."""
+import logging
+import math
 from concurrent.futures import ThreadPoolExecutor
 
 import decora
 from apiloader import search_load
+
+logger = logging.getLogger(__name__)
+
+
+def _clean_float(value):
+    """Normalise a pandas number for the templates.
+
+    pandas uses NaN for a missing number, which Jinja cannot test for
+    (`x is none` is False, and NaN is truthy), so it would render as "nan".
+    Mapping it to None lets templates use a plain `{% if %}`.
+    """
+    if value is None:
+        return None
+    value = float(value)
+    return None if math.isnan(value) else value
+
+
+def _clean_int(value):
+    cleaned = _clean_float(value)
+    return None if cleaned is None else int(cleaned)
 
 
 def gen_everything(room_img, art):
@@ -45,7 +67,10 @@ def gen_everything(room_img, art):
         try:
             product_images.append(future.result())
             rows.append(row)
-        except Exception:
+        except Exception as e:
+            # Logged rather than swallowed: a CDN or decode failure silently
+            # shrinks the candidate set, which otherwise looks like bad ranking.
+            logger.warning("skipping product %s, image fetch failed: %s", row['id'], e)
             continue
 
     if not rows:
@@ -65,8 +90,8 @@ def gen_everything(room_img, art):
             "score": result["score"],
             "reason": result["reason"],
             "price": row['salesPrice'],
-            "rating": row['ratingValue'],
-            "rating_count": row['ratingCount'],
+            "rating": _clean_float(row['ratingValue']),
+            "rating_count": _clean_int(row['ratingCount']),
         })
 
     # Prefer good fits (>=6); if none scored that well, fall back to mediocre-but-

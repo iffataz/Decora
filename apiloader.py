@@ -1,8 +1,16 @@
 """IKEA catalogue search (Australia store) returning a validated pandas DataFrame."""
+import logging
 import ikea_api
 import pandas as pd
 from pydantic import BaseModel
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+COLUMNS = [
+    'id', 'name', 'typeName', 'mainImageUrl', 'contextualImageUrl',
+    'pipUrl', 'ratingValue', 'ratingCount', 'salesPrice',
+]
 
 
 class ItemModel(BaseModel):
@@ -15,6 +23,20 @@ class ItemModel(BaseModel):
     ratingValue: Optional[float] = None
     ratingCount: Optional[int] = None
     salesPrice: dict
+
+
+def _dig(data, *keys, default=None):
+    """Walk nested dict keys, returning `default` if any level is missing or not a dict.
+
+    IKEA's response shape is not part of a contract we control, so a changed or
+    empty payload has to degrade to "no results" rather than raise KeyError.
+    """
+    current = data
+    for key in keys:
+        if not isinstance(current, dict):
+            return default
+        current = current.get(key)
+    return default if current is None else current
 
 
 def search_load(query: str):
@@ -31,48 +53,57 @@ def search_load(query: str):
     except Exception as e:
         raise RuntimeError(f"IKEA API unavailable: {e}") from e
 
-    items = json_dump['searchResultPage']['products']['main']['items']
-
-    pure_items = []
-    for item in items:
-        pure_items.append(item['product'])
-
-    columns = [
-        'id', 'name', 'typeName', 'mainImageUrl', 'contextualImageUrl',
-        'pipUrl', 'ratingValue', 'ratingCount', 'salesPrice',
-    ]
+    items = _dig(json_dump, 'searchResultPage', 'products', 'main', 'items', default=[])
+    if not isinstance(items, list):
+        logger.warning("search_load(%r): unexpected 'items' type %s", query, type(items).__name__)
+        items = []
+    if not items:
+        logger.info("search_load(%r): IKEA returned no items", query)
+        return pd.DataFrame(columns=COLUMNS)
 
     validated_items = []
     seen_ids = set()
-    for item in pure_items:
+    considered = 0
+    dropped = 0
+
+    def take(candidate) -> None:
+        """Validate one raw item/variant and keep it if it is new and well-formed."""
+        nonlocal considered, dropped
+        considered += 1
         try:
-            validated = ItemModel(**item)
-        except Exception:
-            pass
-        else:
-            if validated.id not in seen_ids:
-                seen_ids.add(validated.id)
-                validated_items.append(validated)
+            validated = ItemModel(**candidate)
+        except Exception as e:
+            dropped += 1
+            # Logged rather than swallowed: if IKEA renames a required field,
+            # every item fails here and the app would otherwise just report
+            # "no matching products found" with no clue why.
+            logger.debug("search_load(%r): skipping malformed item: %s", query, e)
+            return
+        if validated.id in seen_ids:
+            return
+        seen_ids.add(validated.id)
+        validated_items.append(validated)
 
-        if item.get('gprDescription', {}).get('numberOfVariants', 0) > 0:
-            variants = item.get('gprDescription', {}).get('variants', [])
-            for variant in variants:
-                try:
-                    validated_variant = ItemModel(**variant)
-                except Exception:
-                    continue
-                if validated_variant.id in seen_ids:
-                    continue
-                seen_ids.add(validated_variant.id)
-                validated_items.append(validated_variant)
+    for item in items:
+        product = item.get('product') if isinstance(item, dict) else None
+        if not isinstance(product, dict):
+            considered += 1
+            dropped += 1
+            continue
+        take(product)
 
+        for variant in _dig(product, 'gprDescription', 'variants', default=[]):
+            if isinstance(variant, dict):
+                take(variant)
+
+    if dropped:
+        logger.warning(
+            "search_load(%r): skipped %d of %d candidate item(s)", query, dropped, considered
+        )
     if not validated_items:
-        return pd.DataFrame(columns=columns)
+        logger.warning("search_load(%r): no items passed validation", query)
+        return pd.DataFrame(columns=COLUMNS)
 
     df = pd.DataFrame([item.model_dump() for item in validated_items])
-
-    def extract_numeral(sales_price):
-        return sales_price.get('numeral')
-
-    df['salesPrice'] = df['salesPrice'].apply(extract_numeral)
+    df['salesPrice'] = df['salesPrice'].apply(lambda price: price.get('numeral'))
     return df

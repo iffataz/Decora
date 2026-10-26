@@ -3,10 +3,12 @@
 
 {% block content %}
     <section class="spad">
-        <div class="container text-center" style="padding: 60px 0;">
-            <h2 style="margin-bottom: 1.5rem;">Something went wrong</h2>
-            <p style="font-size: 1.1rem; margin-bottom: 2rem; color: #8a7d6e;">{{ message }}</p>
-            <a href="{{ url_for('home') }}" class="primary-btn">Try Again</a>
+        <div class="container">
+            <div class="message-page">
+                <h2 class="message-page__heading">Something went wrong</h2>
+                <p class="message-page__text">{{ message }}</p>
+                <a href="{{ url_for('home') }}" class="primary-btn">Try Again</a>
+            </div>
         </div>
     </section>
 {% endblock %}

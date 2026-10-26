@@ -55,7 +55,7 @@ products, e.g. TV benches for a floor-lamp query).
 | AI | Google Gemini `gemini-3.8-flash` (fallback `gemini-3.5-flash-lite`) via `google-genai` (structured JSON output) |
 | Furniture data | `ikea-api` (Australia store) |
 | Data wrangling | pandas, Pydantic |
-| Frontend | Jinja2 templates, Bootstrap, custom CSS |
+| Frontend | Jinja2 templates, hand-written CSS (no framework) |
 | Deployment | Vercel (serverless) |
 
 ## File structure
@@ -66,19 +66,15 @@ Decora/
 │   └── index.py          # Vercel serverless entry point
 ├── web/
 │   ├── stat/
-│   │   ├── bootstrap.min.css
-│   │   ├── style.css      # legacy base stylesheet
-│   │   ├── styles1.css    # BEM styles (search form, product tiles)
-│   │   └── js/
-│   │       ├── bootstrap.min.js
-│   │       └── jquery-3.3.1.min.js
-│   ├── base.html          # Shell: CSS text logo + slim footer
+│   │   ├── styles.css     # The whole stylesheet: tokens, base, components
+│   │   └── favicon.svg
+│   ├── base.html          # Shell: CSS text logo, flash messages, slim footer
 │   ├── index.html         # Home: hero, search form (photo upload or URL), how-it-works
-│   ├── test_results.html  # Results: product tile grid with score bars and match reasons
+│   ├── results.html       # Results: product tile grid with score bars and match reasons
 │   └── error.html
 ├── apiloader.py           # IKEA search → pandas DataFrame (per-item validation, deduped)
 ├── decora.py              # Gemini vision: analyse_room(), score_products()
-├── app.py                 # Flask routes (/, /process_url, /result)
+├── app.py                 # Flask routes (/, /process_url)
 ├── sender.py              # Pipeline: analysis → search → batch-score → rank
 ├── requirements.txt
 ├── vercel.json
@@ -114,7 +110,12 @@ python app.py
 
 ## Deployment
 
-Configured for Vercel via `vercel.json`. Add `GEMINI_API_KEY` and `SECRET_KEY` in your Vercel project's environment variable settings, then push to deploy.
+Configured for Vercel via `vercel.json`. Add `GEMINI_API_KEY` and `SECRET_KEY` in your
+Vercel project's environment variable settings, then push to deploy.
+
+`vercel.json` sets `maxDuration: 60` on the function. A search takes roughly 18-30 s,
+which is longer than Vercel's default function timeout, so without this the request is
+killed mid-pipeline. 60 s is the ceiling on the Hobby plan; Pro allows up to 300.
 
 ## Scoring engine
 
@@ -133,3 +134,26 @@ Configured for Vercel via `vercel.json`. Add `GEMINI_API_KEY` and `SECRET_KEY` i
 Uploads are handled entirely in memory (8 MB cap) — nothing is written to disk, which
 keeps the app compatible with Vercel's serverless filesystem. A module-level
 `genai.Client` singleton is reused across calls.
+
+## Fetching images by URL
+
+The *room image URL* field makes the server fetch a URL the user chose, so it goes
+through `decora.fetch_user_image()` rather than the plain fetcher used for IKEA's CDN:
+
+- the scheme must be `http` or `https`;
+- the host is resolved and every address it returns must be public — private,
+  loopback, link-local, reserved and multicast ranges are refused, which keeps the
+  field from reaching the cloud metadata endpoint or anything on the internal network;
+- redirects are walked by hand (max 3) so each hop is validated too, since a public URL
+  is otherwise free to bounce to an internal one;
+- the body is streamed with a running 10 MB cap, because `Content-Length` is only a hint
+  a hostile server can omit, and `Image.MAX_IMAGE_PIXELS` caps the *decoded* size so a
+  small compressed file can't expand into gigabytes of pixels.
+
+Every rejection reaches the user as the same "Could not load an image from that URL",
+deliberately: a message that distinguished "blocked address" from "fetch failed" would
+turn the field into a port scanner.
+
+One residual gap: the host is validated at resolve time and connected to a moment
+later, so DNS rebinding between the two is still theoretically possible. Closing it
+means connecting to the validated IP with an explicit `Host` header.

@@ -4,17 +4,15 @@
     <meta charset="UTF-8">
     <meta name="description" content="Decora — AI-powered furniture matching">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>{% block title %}Decora{% endblock %}</title>
 
-    <!-- Google Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Aldrich&display=swap" rel="stylesheet">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
 
-    <!-- Css Styles -->
-    <link rel="stylesheet" href="{{url_for('static',filename='bootstrap.min.css')}}" type="text/css">
-<link rel="stylesheet" href="{{url_for('static',filename='style.css')}}" type="text/css">
-    <link rel="stylesheet" href="{{url_for('static',filename='styles1.css')}}" type="text/css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aldrich&family=Poppins:wght@300;400;500;600;700&display=swap">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
 
@@ -25,11 +23,9 @@
 <main class="content">
 
   {% for message in get_flashed_messages() %}
-    <div class="alert alert-warning alert-dismissible fade show" role="alert" style="margin:0;">
-      {{ message }}
-      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-        <span aria-hidden="true">&times;</span>
-      </button>
+    <div class="alert" role="alert">
+      <span class="alert__text">{{ message }}</span>
+      <button type="button" class="alert__close" aria-label="Dismiss this message">&times;</button>
     </div>
   {% endfor %}
   {% block content %}{% endblock %}
@@ -38,12 +34,18 @@
 
 <footer class="site-footer">
     Built by Iffat Abdul Azeez &mdash;
-    <a href="https://github.com/iffataz" target="_blank">GitHub</a>
+    <a href="https://github.com/iffataz" target="_blank" rel="noopener">GitHub</a>
     &nbsp;&middot;&nbsp; &copy; 2026
 </footer>
 
-<!-- Js Plugins -->
-<script src="{{url_for('static',filename='js/jquery-3.3.1.min.js')}}"></script>
-<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+<script>
+    // Dismiss flash messages (replaces Bootstrap's JS alert plugin + jQuery).
+    document.addEventListener('click', function (event) {
+        var close = event.target.closest('.alert__close');
+        if (close) {
+            close.parentElement.remove();
+        }
+    });
+</script>
 </body>
 </html>

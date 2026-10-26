@@ -14,7 +14,7 @@
     <!-- Search Section -->
     <section class="search-section" id="search">
         <div class="search-section__inner">
-            <form action="/process_url" method="POST" id="search-form" enctype="multipart/form-data">
+            <form action="{{ url_for('process_url') }}" method="POST" id="search-form" enctype="multipart/form-data">
                 <div class="search-section__field">
                     <label class="search-section__label" for="photo">ROOM PHOTO</label>
                     <input class="search-section__input search-section__input--file" type="file" id="photo" name="photo" accept="image/*">
@@ -34,9 +34,9 @@
             </form>
         </div>
 
-        <div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.92); z-index:9999; text-align:center; padding-top:20%;">
-            <div class="spinner-border text-dark" role="status" style="width:3rem; height:3rem;"></div>
-            <p style="margin-top:1rem; font-size:1.1rem; font-family:'Poppins',sans-serif;">Analysing your room&hellip; about 30 seconds.</p>
+        <div id="loading-overlay" class="loading-overlay" role="status" aria-live="polite" hidden>
+            <div class="loading-overlay__spinner" aria-hidden="true"></div>
+            <p class="loading-overlay__text">Analysing your room&hellip; about 30 seconds.</p>
         </div>
 
         <script>
@@ -58,8 +58,16 @@
                     photoInput.disabled = false;
                 }
             });
-            document.getElementById('search-form').addEventListener('submit', function () {
-                document.getElementById('loading-overlay').style.display = 'block';
+
+            // A search costs two Gemini calls, so swallow repeat submits while one is in flight.
+            var submitting = false;
+            document.getElementById('search-form').addEventListener('submit', function (event) {
+                if (submitting) {
+                    event.preventDefault();
+                    return;
+                }
+                submitting = true;
+                document.getElementById('loading-overlay').hidden = false;
             });
         </script>
     </section>

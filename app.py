@@ -13,10 +13,23 @@ from sender import gen_everything
 load_dotenv()
 
 app = Flask(__name__, template_folder='web', static_folder='web/stat')
-app.secret_key = os.environ['SECRET_KEY']
-app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024
+
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    # Raised at import so the cause is visible in the logs; reading os.environ
+    # directly would surface only a bare KeyError from a serverless cold start.
+    raise RuntimeError(
+        "SECRET_KEY environment variable is not set. Generate one with: "
+        'python -c "import secrets; print(secrets.token_hex(32))"'
+    )
+app.secret_key = SECRET_KEY
 
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = MAX_PHOTO_BYTES
+
+FURNITURE_TYPE_RE = re.compile(r'^[a-zA-Z0-9 ]{1,50}$')
+
+logger = logging.getLogger(__name__)
 
 
 @app.route("/")
@@ -39,8 +52,8 @@ def process_url():
         flash("Please upload a room photo or paste an image URL.")
         return redirect(url_for('home'))
 
-    if not art or not re.match(r'^[a-zA-Z0-9 ]{1,50}$', art):
-        flash("Please enter a valid furniture type (letters and spaces only, max 50 characters)")
+    if not FURNITURE_TYPE_RE.match(art):
+        flash("Please enter a valid furniture type (letters, numbers and spaces only, max 50 characters)")
         return redirect(url_for('home'))
 
     if has_photo:
@@ -56,37 +69,40 @@ def process_url():
             return redirect(url_for('home'))
         try:
             room_img = Image.open(BytesIO(data))
+            room_img.load()
             if room_img.mode != "RGB":
                 room_img = room_img.convert("RGB")
         except Exception:
             flash("That file doesn't look like a valid image.")
             return redirect(url_for('home'))
     else:
+        # Cheap, leak-free check so an obvious typo gets a useful message;
+        # fetch_user_image still does the real scheme and address validation.
         if not url.startswith(('http://', 'https://')):
             flash("Please enter a valid image URL starting with http:// or https://")
             return redirect(url_for('home'))
         try:
-            room_img = decora._fetch_image(url)
+            room_img = decora.fetch_user_image(url)
         except Exception:
+            # Deliberately uniform: a message that distinguished "blocked
+            # address" from "fetch failed" would turn this into a port scanner.
+            logger.info("Rejected or unreachable room image URL", exc_info=True)
             flash("Could not load an image from that URL.")
             return redirect(url_for('home'))
 
     try:
         dump = gen_everything(room_img, art)
     except genai_errors.APIError:
-        logging.exception("Gemini API error in gen_everything")
+        logger.exception("Gemini API error in gen_everything")
         return render_template("error.html", message="Our AI stylist is busy right now. Please try again in a minute.")
-    except Exception as e:
-        logging.exception("Error in gen_everything")
-        return render_template("error.html", message=f"Something went wrong: {e}")
+    except Exception:
+        # Logged in full, shown generically: exception text here can carry
+        # upstream URLs and internal detail.
+        logger.exception("Error in gen_everything")
+        return render_template("error.html", message="Something went wrong on our end. Please try again.")
     if not dump:
         return render_template("error.html", message="No matching products found. Try a different image or furniture type.")
-    return render_template("test_results.html", my_list=dump)
-
-
-@app.route("/result")
-def result():
-    return redirect(url_for('home'))
+    return render_template("results.html", my_list=dump)
 
 
 @app.errorhandler(413)

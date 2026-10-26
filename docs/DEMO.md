@@ -25,7 +25,7 @@ flowchart TD
     D -->|tailored search: up to 6<br/>plain search: fill to 10| E[Fetch product images in parallel]
     E --> F[decora.score_products<br/>Gemini call 2: all products at once]
     F -->|score 1-10 + reason per product| G[sender.py<br/>keep ≥ 6, else ≥ 3; sort; top 4]
-    G --> H[test_results.html<br/>product cards]
+    G --> H[results.html<br/>product cards]
 ```
 
 ## Step by step
@@ -37,7 +37,7 @@ flowchart TD
 **What to say:** "No filters, no style quiz. Just a photo of your room and what you're shopping for."
 
 **Behind the scenes** (`app.py`, `/process_url`):
-- **Checks:** the furniture type must be letters and spaces (max 50 characters), and the image must be under 8 MB.
+- **Checks:** the furniture type must be letters, numbers and spaces (max 50 characters), and the image must be under 8 MB. A pasted URL is additionally checked to resolve to a public address, so the field can't be pointed at the internal network.
 - **No saving:** the image stays in memory and is never written to disk, which is what lets the app run on Vercel's serverless functions.
 - **Loading screen:** clicking *Find matches* shows "Analysing your room… about 30 seconds". A typical search takes about 18 seconds.
 
@@ -78,7 +78,7 @@ Colour and size variants are included, duplicates are removed by product id, and
 
 ### 5. Results page
 
-**What they see:** up to 4 product cards (`web/test_results.html`), each with image, name, **"9/10 match"**, the reason, the AU$ price and the IKEA star rating. Each links to the IKEA product page.
+**What they see:** up to 4 product cards (`web/results.html`), each with image, name, **"9/10 match"**, the reason, the AU$ price and the IKEA star rating. Each links to the IKEA product page.
 
 **Behind the scenes:**
 - **Filtering:** keeps products scoring 6 or higher, best first.
@@ -112,4 +112,4 @@ Colour and size variants are included, duplicates are removed by product id, and
 | IKEA search | `apiloader.py` | `search_load()` |
 | Product scoring | `decora.py` | `score_products()` |
 | Retry + fallback | `decora.py` | `_generate_with_retries()` |
-| Results page | `web/test_results.html` | n/a |
+| Results page | `web/results.html` | n/a |

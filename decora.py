@@ -1,10 +1,14 @@
 """Gemini vision layer: room analysis and batched product scoring (2 calls per search)."""
+import ipaddress
+import json
 import logging
 import os
+import socket
 import time
 import httpx
 import requests
 from io import BytesIO
+from urllib.parse import urljoin, urlparse
 from PIL import Image
 from pydantic import BaseModel
 from google import genai
@@ -37,24 +41,103 @@ class ProductScore(BaseModel):
     reason: str
 
 
-def _fetch_image(url: str) -> Image.Image:
-    MAX_IMAGE_BYTES = 10 * 1024 * 1024
-    resp = requests.get(url, timeout=10)
-    resp.raise_for_status()
-    content_length = resp.headers.get("Content-Length")
-    if content_length and int(content_length) > MAX_IMAGE_BYTES:
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+FETCH_TIMEOUT = 10
+MAX_REDIRECTS = 3
+
+# A 10 MB file can decode to gigabytes of pixels, so the byte cap alone isn't
+# enough; cap decoded size too. Pillow raises DecompressionBombError past this.
+Image.MAX_IMAGE_PIXELS = 50_000_000
+
+
+def _read_image(resp: requests.Response) -> Image.Image:
+    """Read an image from a streamed response, aborting past MAX_IMAGE_BYTES.
+
+    Content-Length is only a hint (a hostile server can omit or lie about it),
+    so the running total over the streamed chunks is what actually enforces the cap.
+    """
+    declared = resp.headers.get("Content-Length")
+    if declared and declared.isdigit() and int(declared) > MAX_IMAGE_BYTES:
         raise ValueError("image too large")
-    if len(resp.content) > MAX_IMAGE_BYTES:
-        raise ValueError("image too large")
-    img = Image.open(BytesIO(resp.content))
+
+    chunks = []
+    total = 0
+    for chunk in resp.iter_content(64 * 1024):
+        total += len(chunk)
+        if total > MAX_IMAGE_BYTES:
+            raise ValueError("image too large")
+        chunks.append(chunk)
+
+    img = Image.open(BytesIO(b"".join(chunks)))
+    img.load()  # force decode here so a malformed body fails at the fetch, not mid-prompt
     if img.mode != "RGB":
         img = img.convert("RGB")
     return img
 
 
+def _fetch_image(url: str) -> Image.Image:
+    """Fetch an image from a trusted URL (IKEA's CDN). No host validation."""
+    with requests.get(url, timeout=FETCH_TIMEOUT, stream=True) as resp:
+        resp.raise_for_status()
+        return _read_image(resp)
+
+
+def _assert_public_url(url: str) -> None:
+    """Raise ValueError unless `url` is http(s) and resolves only to public addresses.
+
+    Stops the room-image URL field being used to reach the cloud metadata
+    endpoint, localhost, or anything else on the private network.
+    """
+    parts = urlparse(url)
+    if parts.scheme not in ("http", "https"):
+        raise ValueError("only http and https URLs are supported")
+    host = parts.hostname
+    if not host:
+        raise ValueError("URL has no host")
+
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror as e:
+        raise ValueError(f"could not resolve host: {host}") from e
+
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        # is_global is False for private, loopback, link-local and reserved ranges.
+        if not ip.is_global or ip.is_multicast:
+            raise ValueError("URL resolves to a non-public address")
+
+
+def fetch_user_image(url: str) -> Image.Image:
+    """Fetch an image from a user-supplied URL, refusing private network targets.
+
+    Redirects are walked by hand so every hop is validated; letting requests
+    follow them would allow a public URL to bounce to an internal one.
+
+    This narrows but does not close the hole: the host is validated at resolve
+    time and connected to a moment later, so a DNS record that changes in
+    between (rebinding) is still theoretically possible. Closing that needs
+    connecting to the validated IP directly with an explicit Host header.
+    """
+    for _ in range(MAX_REDIRECTS + 1):
+        _assert_public_url(url)
+        with requests.get(url, timeout=FETCH_TIMEOUT, stream=True, allow_redirects=False) as resp:
+            if resp.is_redirect or resp.is_permanent_redirect:
+                location = resp.headers.get("Location")
+                if not location:
+                    raise ValueError("redirect without a Location header")
+                url = urljoin(url, location)
+                continue
+            resp.raise_for_status()
+            return _read_image(resp)
+    raise ValueError("too many redirects")
+
+
 def _prepare(img: Image.Image) -> Image.Image:
-    img.thumbnail((768, 768))
-    return img
+    """Downscale a copy to <=768 px. Copied so callers keep their original image."""
+    out = img.copy()
+    out.thumbnail((768, 768))
+    return out
 
 
 def _generate_with_retries(client: genai.Client, **kwargs):
@@ -114,7 +197,6 @@ def analyse_room(img: Image.Image) -> dict:
     )
     result = response.parsed
     if result is None:
-        import json
         result = RoomAnalysis(**json.loads(response.text))
     data = result.model_dump()
     for key in ("style", "colors", "mood", "search_keywords"):
@@ -167,7 +249,6 @@ def score_products(room_img: Image.Image, room: dict, product_images: list[Image
     )
     results = response.parsed
     if results is None:
-        import json
         results = [ProductScore(**item) for item in json.loads(response.text)]
 
     scored = []
