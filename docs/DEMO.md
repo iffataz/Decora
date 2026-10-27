@@ -103,6 +103,15 @@ Colour and size variants are included, duplicates are removed by product id, and
 - **Warm-up:** do one practice search right before the demo, so the serverless function is already running.
 - **Timing:** narrate steps 2–4 during the ~20 s wait. The loading screen is your cue.
 
+## If someone asks about testing
+
+`pytest` runs 301 tests in about five seconds with no network and no API key —
+Gemini, IKEA and image fetching are all faked. CI runs them plus `ruff` on Python
+3.10 and 3.13 for every push and pull request. The tests worth mentioning are the
+ones around the index remapping in `sender.py`: if a score ever attached to the
+wrong product, every result would be mislabelled and the page would still look
+entirely plausible.
+
 ## Where things live
 
 | Step | File | Function |

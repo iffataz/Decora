@@ -5,15 +5,16 @@ import logging
 import os
 import socket
 import time
-import httpx
-import requests
 from io import BytesIO
 from urllib.parse import urljoin, urlparse
-from PIL import Image
-from pydantic import BaseModel
+
+import httpx
+import requests
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
+from PIL import Image
+from pydantic import BaseModel
 
 MODEL = "gemini-3.8-flash"
 # 3.8 Flash slows down or 503s under demand spikes; flash-lite stays fast, so
@@ -102,10 +103,29 @@ def _assert_public_url(url: str) -> None:
         raise ValueError(f"could not resolve host: {host}") from e
 
     for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        # is_global is False for private, loopback, link-local and reserved ranges.
-        if not ip.is_global or ip.is_multicast:
+        if not _is_public_address(info[4][0]):
             raise ValueError("URL resolves to a non-public address")
+
+
+def _is_public_address(address: str) -> bool:
+    """Whether an IP literal is on the public internet.
+
+    `is_global` alone would nearly do, but it is not a stable answer: CPython
+    has corrected which special ranges it covers across patch releases, and
+    multicast still reports as global. So each category this guard cares about
+    is named explicitly, and `is_global` is the final catch-all for the rest
+    (shared CGNAT space, documentation ranges, and anything added later).
+    """
+    ip = ipaddress.ip_address(address)
+    return not (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_reserved
+        or ip.is_multicast
+        or ip.is_unspecified
+        or not ip.is_global
+    )
 
 
 def fetch_user_image(url: str) -> Image.Image:
@@ -155,7 +175,10 @@ def _generate_with_retries(client: genai.Client, **kwargs):
         if attempt == 0:
             logger.warning("Gemini %s error (%s), retrying in 2s", kwargs["model"], reason)
             time.sleep(2)
-    logger.warning("Gemini %s still failing (%s), falling back to %s", kwargs["model"], reason, FALLBACK_MODEL)
+    logger.warning(
+        "Gemini %s still failing (%s), falling back to %s",
+        kwargs["model"], reason, FALLBACK_MODEL,
+    )
     return client.models.generate_content(**{**kwargs, "model": FALLBACK_MODEL})
 
 
@@ -205,7 +228,12 @@ def analyse_room(img: Image.Image) -> dict:
     return data
 
 
-def score_products(room_img: Image.Image, room: dict, product_images: list[Image.Image], furniture_type: str) -> list[dict]:
+def score_products(
+    room_img: Image.Image,
+    room: dict,
+    product_images: list[Image.Image],
+    furniture_type: str,
+) -> list[dict]:
     """Single Gemini call to comparatively score a batch of product images against the room."""
     client = _get_client()
     room_img = _prepare(room_img)

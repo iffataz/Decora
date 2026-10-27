@@ -1,12 +1,14 @@
 """Flask app: search form → /process_url runs the pipeline and renders results."""
+import logging
 import os
 import re
-import logging
 from io import BytesIO
-from flask import Flask, render_template, redirect, url_for, request, flash
+
 from dotenv import load_dotenv
-from PIL import Image
+from flask import Flask, flash, redirect, render_template, request, url_for
 from google.genai import errors as genai_errors
+from PIL import Image
+
 import decora
 import ratelimit
 from sender import gen_everything
@@ -113,19 +115,25 @@ def process_url():
         dump = gen_everything(room_img, art)
     except genai_errors.APIError:
         logger.exception("Gemini API error in gen_everything")
-        return render_template("error.html", message="Our AI stylist is busy right now. Please try again in a minute.")
+        return render_template(
+            "error.html",
+            message="Our AI stylist is busy right now. Please try again in a minute.",
+        )
     except Exception:
         # Logged in full, shown generically: exception text here can carry
         # upstream URLs and internal detail.
         logger.exception("Error in gen_everything")
         return render_template("error.html", message="Something went wrong on our end. Please try again.")
     if not dump:
-        return render_template("error.html", message="No matching products found. Try a different image or furniture type.")
+        return render_template(
+            "error.html",
+            message="No matching products found. Try a different image or furniture type.",
+        )
     return render_template("results.html", my_list=dump)
 
 
 @app.errorhandler(413)
-def too_large(e):
+def too_large(_e):
     flash("Upload is too large (max 8 MB).")
     return redirect(url_for('home'))
 

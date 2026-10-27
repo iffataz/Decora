@@ -1,5 +1,7 @@
 # Decora
 
+[![CI](https://github.com/iffataz/Decora/actions/workflows/ci.yml/badge.svg)](https://github.com/iffataz/Decora/actions/workflows/ci.yml)
+
 Decora is a Flask web app that recommends IKEA furniture for a room. Upload a room photo (or paste an image URL) and a furniture type; Gemini looks at the room, then visually compares IKEA candidates against it and returns the top matches — each with a one-sentence reason why it fits.
 
 **Live on Vercel** — a search form on the home page, results rendered directly from the submission.
@@ -58,6 +60,7 @@ products, e.g. TV benches for a floor-lamp query).
 | Frontend | Jinja2 templates, hand-written CSS (no framework) |
 | Rate limiting | In-process counters, or Upstash Redis when configured |
 | Deployment | Vercel (serverless) |
+| Tests / lint | pytest, ruff, GitHub Actions |
 
 ## File structure
 
@@ -77,6 +80,10 @@ Decora/
 ├── decora.py              # Gemini vision: analyse_room(), score_products()
 ├── app.py                 # Flask routes (/, /process_url)
 ├── ratelimit.py           # Per-IP + global search limits (in-process or Redis)
+├── tests/                 # pytest suite; no network, no API keys needed
+├── .github/workflows/ci.yml
+├── pyproject.toml         # ruff + pytest config
+├── requirements-dev.txt
 ├── sender.py              # Pipeline: analysis → search → batch-score → rank
 ├── requirements.txt
 ├── vercel.json
@@ -158,6 +165,33 @@ Behind Vercel, the client address comes from `X-Real-IP` (falling back to the le
 `X-Forwarded-For` entry), which Vercel's edge rewrites. Running the app exposed
 directly, a client can send those headers itself, so set `TRUST_PROXY_HEADERS=0` to
 use the socket address only.
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest          # 301 tests, ~5 seconds
+ruff check .
+```
+
+Nothing in the suite touches the network or needs an API key: Gemini, the IKEA
+catalogue and image fetching are all faked, so it runs offline and costs nothing.
+`tests/conftest.py` sets dummy credentials and switches the rate limits off before
+`app` is imported.
+
+What it covers, roughly in order of how badly a regression would hurt:
+
+| Area | File | The failure it guards against |
+|------|------|-------------------------------|
+| URL fetching | `test_fetching.py` | The room-image URL field reaching the private network — every address class and every redirect hop, pinned per address so a stdlib change can't widen it |
+| Scoring | `test_sender.py` | A score landing on the wrong product. The index remapping is the nastiest bug in the app: it mislabels every result and still looks plausible |
+| Gemini layer | `test_gemini.py` | Retries hammering a dead key, or a hallucinated product number attaching a score to a product that wasn't scored |
+| Catalogue | `test_apiloader.py` | A change in IKEA's response shape turning into a 500, or silent whole-batch validation failure |
+| Rate limiting | `test_ratelimit.py` | Limits not holding, counters leaking memory, or a limiter outage taking the site down |
+| Routes | `test_app.py` | Leaking internals in an error page, NaN rendering as "nan", or spend past the rate limit |
+
+CI runs ruff once and the suite on Python 3.10 (the floor the dependencies allow)
+and 3.13, on every push to `main`, every pull request, and on demand.
 
 ## Deployment
 

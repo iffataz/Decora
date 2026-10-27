@@ -1,9 +1,10 @@
 """IKEA catalogue search (Australia store) returning a validated pandas DataFrame."""
 import logging
+from typing import Optional
+
 import ikea_api
 import pandas as pd
 from pydantic import BaseModel
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

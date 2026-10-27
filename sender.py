@@ -63,7 +63,7 @@ def gen_everything(room_img, art):
     # appending to both together, so rows[i] always describes product_images[i].
     rows = []
     product_images = []
-    for row, future in zip(candidates, fetches):
+    for row, future in zip(candidates, fetches, strict=True):
         try:
             product_images.append(future.result())
             rows.append(row)

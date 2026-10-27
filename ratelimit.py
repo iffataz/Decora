@@ -38,6 +38,16 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+GLOBAL_WINDOW = 86_400
+UPSTASH_TIMEOUT = 3
+
+# Defaults, overridable per Limiter and from the environment. 10/hour/IP leaves
+# room for a demo or a few rooms in a row while still capping one visitor at 20
+# Gemini calls an hour; 200/day overall is ~400 Gemini calls.
+DEFAULT_PER_IP = 10
+DEFAULT_PER_IP_WINDOW = 3600
+DEFAULT_GLOBAL_DAILY = 200
+
 
 def _int_env(name: str, default: int) -> int:
     raw = os.environ.get(name)
@@ -50,20 +60,14 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
-# 10 searches/hour/IP, 200/day overall (~400 Gemini calls). Override via env.
-# 10 leaves room for a demo or a few rooms in a row while still capping one
-# visitor at 20 Gemini calls an hour.
-PER_IP_LIMIT = _int_env("RATE_LIMIT_PER_IP", 10)
-PER_IP_WINDOW = _int_env("RATE_LIMIT_WINDOW_SECONDS", 3600)
-GLOBAL_DAILY_LIMIT = _int_env("RATE_LIMIT_GLOBAL_PER_DAY", 200)
-GLOBAL_WINDOW = 86_400
+def trust_proxy_headers() -> bool:
+    """Whether to believe X-Real-IP / X-Forwarded-For.
 
-# Vercel's edge rewrites both of these, so they can be trusted there. Set
-# TRUST_PROXY_HEADERS=0 when exposing the app directly, where a client can
-# send whatever it likes and spoofing them would defeat the per-IP limit.
-TRUST_PROXY_HEADERS = os.environ.get("TRUST_PROXY_HEADERS", "1") != "0"
-
-UPSTASH_TIMEOUT = 3
+    Vercel's edge rewrites both, so they can be trusted there. Set
+    TRUST_PROXY_HEADERS=0 when exposing the app directly, where a client can
+    send whatever it likes and spoofing them would defeat the per-IP limit.
+    """
+    return os.environ.get("TRUST_PROXY_HEADERS", "1") != "0"
 
 
 @dataclass(frozen=True)
@@ -83,7 +87,7 @@ class InMemoryBackend:
         self._lock = threading.Lock()
         self._windows: dict[str, list] = {}  # key -> [expires_at, count]
 
-    def incr(self, key: str, ttl: int) -> int | None:
+    def incr(self, key: str, ttl: int) -> "int | None":
         now = time.monotonic()
         with self._lock:
             if len(self._windows) > self._MAX_KEYS:
@@ -99,10 +103,13 @@ class InMemoryBackend:
             window[1] += 1
             return window[1]
 
-    def reset(self) -> None:
-        """Drop all counters. For tests."""
+    def count(self, key: str) -> int:
+        """Current value of a counter, 0 if absent or expired. For tests."""
         with self._lock:
-            self._windows.clear()
+            window = self._windows.get(key)
+            if window is None or window[0] <= time.monotonic():
+                return 0
+            return window[1]
 
 
 class UpstashBackend:
@@ -110,25 +117,25 @@ class UpstashBackend:
 
     def __init__(self, url: str, token: str) -> None:
         self._url = url.rstrip("/") + "/pipeline"
-        self._session = requests.Session()
-        self._session.headers["Authorization"] = f"Bearer {token}"
+        self.session = requests.Session()
+        self.session.headers["Authorization"] = f"Bearer {token}"
 
-    def incr(self, key: str, ttl: int) -> int | None:
+    def incr(self, key: str, ttl: int) -> "int | None":
         # EXPIRE .. NX sets the TTL only if the key has none, so the window is
         # anchored to its first request instead of sliding forward on each hit.
         body = [["INCR", key], ["EXPIRE", key, str(ttl), "NX"]]
         try:
-            resp = self._session.post(self._url, json=body, timeout=UPSTASH_TIMEOUT)
+            resp = self.session.post(self._url, json=body, timeout=UPSTASH_TIMEOUT)
             resp.raise_for_status()
-            count = resp.json()[0]["result"]
-            return int(count)
+            return int(resp.json()[0]["result"])
         except Exception as e:
             # Fail open: see the module docstring.
             logger.warning("rate limit backend unavailable, allowing request: %s", e)
             return None
 
 
-def _make_backend():
+def make_backend():
+    """Upstash when its credentials are set, otherwise in-process counters."""
     url = os.environ.get("UPSTASH_REDIS_REST_URL")
     token = os.environ.get("UPSTASH_REDIS_REST_TOKEN")
     if url and token:
@@ -141,19 +148,89 @@ def _make_backend():
     return InMemoryBackend()
 
 
-_backend = None
+class Limiter:
+    """Counts searches against a per-IP limit and a global daily ceiling.
+
+    Limits are held on the instance rather than read from the environment on
+    each call, so tests can build one directly instead of reloading the module.
+    A limit of 0 disables that check.
+    """
+
+    def __init__(self, backend=None, per_ip=None, per_ip_window=None, global_daily=None):
+        self._backend = backend if backend is not None else make_backend()
+        self.per_ip = DEFAULT_PER_IP if per_ip is None else per_ip
+        self.per_ip_window = DEFAULT_PER_IP_WINDOW if per_ip_window is None else per_ip_window
+        self.global_daily = DEFAULT_GLOBAL_DAILY if global_daily is None else global_daily
+
+    @classmethod
+    def from_env(cls, backend=None) -> "Limiter":
+        return cls(
+            backend=backend,
+            per_ip=_int_env("RATE_LIMIT_PER_IP", DEFAULT_PER_IP),
+            per_ip_window=_int_env("RATE_LIMIT_WINDOW_SECONDS", DEFAULT_PER_IP_WINDOW),
+            global_daily=_int_env("RATE_LIMIT_GLOBAL_PER_DAY", DEFAULT_GLOBAL_DAILY),
+        )
+
+    @property
+    def backend(self):
+        return self._backend
+
+    def ip_key(self, ip: str) -> str:
+        return _window_key("ip", ip, self.per_ip_window)
+
+    def global_key(self) -> str:
+        return _window_key("global", "all", GLOBAL_WINDOW)
+
+    def check(self, ip: str) -> Decision:
+        """Count this search against both limits and say whether to serve it.
+
+        The per-IP limit is checked first, so a visitor who is already over
+        their own limit does not consume global quota. A request allowed per-IP
+        but denied globally does consume one of its IP's slots, which is a
+        harmless over-count in the rare case where the global cap binds.
+        """
+        now = int(time.time())
+
+        if self.per_ip > 0:
+            count = self._backend.incr(self.ip_key(ip), self.per_ip_window)
+            if count is not None and count > self.per_ip:
+                logger.info("rate limited %s: %d searches in window", ip, count)
+                return Decision(False, self.per_ip_window - (now % self.per_ip_window), "ip")
+
+        if self.global_daily > 0:
+            count = self._backend.incr(self.global_key(), GLOBAL_WINDOW)
+            if count is not None and count > self.global_daily:
+                logger.warning("global daily search cap of %d reached", self.global_daily)
+                return Decision(False, GLOBAL_WINDOW - (now % GLOBAL_WINDOW), "global")
+
+        return Decision(True)
 
 
-def backend():
-    global _backend
-    if _backend is None:
-        _backend = _make_backend()
-    return _backend
+def _window_key(prefix: str, ident: str, window: int) -> str:
+    """Key naming the current fixed window, so it expires with it."""
+    return f"decora:{prefix}:{int(time.time()) // window}:{ident}"
 
 
-def client_ip(request) -> str:
+_default: "Limiter | None" = None
+
+
+def default_limiter() -> Limiter:
+    """The process-wide limiter, built from the environment on first use."""
+    global _default
+    if _default is None:
+        _default = Limiter.from_env()
+    return _default
+
+
+def check(ip: str) -> Decision:
+    return default_limiter().check(ip)
+
+
+def client_ip(request, trust_proxy=None) -> str:
     """Best-effort client address for the per-IP limit."""
-    if TRUST_PROXY_HEADERS:
+    if trust_proxy is None:
+        trust_proxy = trust_proxy_headers()
+    if trust_proxy:
         real_ip = request.headers.get("X-Real-IP", "").strip()
         if real_ip:
             return real_ip
@@ -162,39 +239,6 @@ def client_ip(request) -> str:
             # Leftmost entry is the originating client.
             return forwarded.split(",")[0].strip()
     return request.remote_addr or "unknown"
-
-
-def _window_key(prefix: str, ident: str, window: int) -> str:
-    """Key naming the current fixed window, so it expires with it."""
-    return f"decora:{prefix}:{int(time.time()) // window}:{ident}"
-
-
-def check(ip: str) -> Decision:
-    """Count this search against both limits and say whether to serve it.
-
-    The per-IP limit is checked first, so a visitor who is already over their
-    own limit does not consume global quota. A request allowed per-IP but denied
-    globally does consume one of its IP's slots, which is a harmless over-count
-    in the rare case where the global cap is the binding constraint.
-    """
-    store = backend()
-    now = int(time.time())
-
-    if PER_IP_LIMIT > 0:
-        count = store.incr(_window_key("ip", ip, PER_IP_WINDOW), PER_IP_WINDOW)
-        if count is not None and count > PER_IP_LIMIT:
-            retry_after = PER_IP_WINDOW - (now % PER_IP_WINDOW)
-            logger.info("rate limited %s: %d searches in window", ip, count)
-            return Decision(False, retry_after, "ip")
-
-    if GLOBAL_DAILY_LIMIT > 0:
-        count = store.incr(_window_key("global", "all", GLOBAL_WINDOW), GLOBAL_WINDOW)
-        if count is not None and count > GLOBAL_DAILY_LIMIT:
-            retry_after = GLOBAL_WINDOW - (now % GLOBAL_WINDOW)
-            logger.warning("global daily search cap of %d reached", GLOBAL_DAILY_LIMIT)
-            return Decision(False, retry_after, "global")
-
-    return Decision(True)
 
 
 def describe_wait(seconds: int) -> str:

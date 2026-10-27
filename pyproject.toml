@@ -1,0 +1,42 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 110
+exclude = ["venv", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RET", "ARG", "PL"]
+ignore = [
+    # The project writes `from typing import Optional`; not worth churning the
+    # pydantic models to `X | None` just to satisfy a style rule.
+    "UP045",
+    # Flask routes and the pipeline read better slightly long.
+    "PLR0912",
+    "PLR0915",
+    # Magic numbers are clearer inline than named for sizes and HTTP codes.
+    "PLR2004",
+    # process_url is a flat chain of validation guards; early returns read
+    # better than the nesting needed to avoid them.
+    "PLR0911",
+    # The Gemini client and the default limiter are deliberate lazy singletons.
+    "PLW0603",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests reach into private helpers on purpose: the SSRF guard, the streamed
+# size cap and the window keys are the behaviour worth pinning down.
+"tests/*" = [
+    "ARG001", "ARG002", "PLR0913",
+    # Stub callables must match the signature they replace, so their
+    # parameters are deliberately unused.
+    "ARG005",
+    # dict(...) reads better than a literal for form payloads and fixtures.
+    "C408",
+    # conftest imports `app` inside fixtures on purpose: app.py raises at
+    # import when SECRET_KEY is unset, so the env must be in place first.
+    "PLC0415",
+]

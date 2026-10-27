@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # One run per branch: a new push supersedes an in-flight run.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install ruff
+        # Pinned in requirements-dev.txt; installed alone so lint doesn't wait
+        # on pandas and pillow wheels.
+        run: pip install "$(grep '^ruff==' requirements-dev.txt)"
+
+      - run: ruff check --output-format=github .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor the dependencies allow and the current release. The
+        # versions between are covered by the same pure-Python code paths.
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        # Dummy values: every test fakes Gemini and IKEA, so no real key is
+        # needed, but app.py refuses to import without SECRET_KEY.
+        env:
+          SECRET_KEY: ci-secret
+          GEMINI_API_KEY: ci-key
+        run: pytest
