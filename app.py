@@ -1,16 +1,22 @@
-"""Flask app: search form → /process_url runs the pipeline and renders results."""
+"""Flask app: the search form, the pipeline, and result pages.
+
+POST /process_url runs a search and redirects to GET /r/<token>, so the result
+has its own address: refreshing it re-reads the store rather than re-submitting
+the form, and the link can be kept or shared. See resultstore.py.
+"""
 import logging
 import os
 import re
 from io import BytesIO
 
 from dotenv import load_dotenv
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, url_for
 from google.genai import errors as genai_errors
 from PIL import Image
 
 import decora
 import ratelimit
+import resultstore
 from sender import gen_everything
 
 load_dotenv()
@@ -31,6 +37,8 @@ MAX_PHOTO_BYTES = 8 * 1024 * 1024
 app.config['MAX_CONTENT_LENGTH'] = MAX_PHOTO_BYTES
 
 FURNITURE_TYPE_RE = re.compile(r'^[a-zA-Z0-9 ]{1,50}$')
+# secrets.token_urlsafe output: a bad token should 404, not reach the store.
+RESULT_TOKEN_RE = re.compile(r'^[A-Za-z0-9_-]{16,64}$')
 
 logger = logging.getLogger(__name__)
 
@@ -111,25 +119,68 @@ def process_url():
             flash("Could not load an image from that URL.")
             return redirect(url_for('home'))
 
+    store = resultstore.default_store()
+
+    # An identical earlier search is already paid for, so reuse its page rather
+    # than spending two more Gemini calls on the same answer.
+    key = resultstore.search_key(room_img, art)
+    existing = store.token_for(key)
+    if existing:
+        logger.info("reusing stored search %s", existing)
+        return _see_other(existing)
+
     try:
         dump = gen_everything(room_img, art)
     except genai_errors.APIError:
         logger.exception("Gemini API error in gen_everything")
-        return render_template(
-            "error.html",
-            message="Our AI stylist is busy right now. Please try again in a minute.",
-        )
+        return _see_other(store.put_error(
+            None, "Our AI stylist is busy right now. Please try again in a minute."))
     except Exception:
         # Logged in full, shown generically: exception text here can carry
         # upstream URLs and internal detail.
         logger.exception("Error in gen_everything")
-        return render_template("error.html", message="Something went wrong on our end. Please try again.")
+        return _see_other(store.put_error(
+            None, "Something went wrong on our end. Please try again."))
+
     if not dump:
+        return _see_other(store.put_error(
+            "No matches yet",
+            "No matching products found. Try a different image or furniture type."))
+
+    return _see_other(store.put_results(dump, key=key))
+
+
+def _see_other(token):
+    """303 after a POST: the browser re-requests with GET, so a refresh of the
+    result page never re-submits the search."""
+    return redirect(url_for('result', token=token), code=303)
+
+
+@app.route("/r/<token>")
+def result(token):
+    """A stored search outcome. Cheap, idempotent, and safe to refresh."""
+    if not RESULT_TOKEN_RE.match(token):
+        abort(404)
+
+    payload = resultstore.default_store().get(token)
+    if payload is None:
+        # Either the TTL passed, or this instance is not the one that stored it
+        # (see resultstore.py on the in-process backend).
         return render_template(
             "error.html",
-            message="No matching products found. Try a different image or furniture type.",
+            heading="That link has expired",
+            message="Result links don't last forever. Run the search again to get fresh matches.",
+        ), 404
+
+    if "error" in payload:
+        error = payload["error"]
+        return render_template(
+            "error.html",
+            heading=error.get("heading"),
+            message=error.get("message"),
         )
-    return render_template("results.html", my_list=dump)
+
+    return render_template("results.html", my_list=payload.get("items", []))
 
 
 @app.errorhandler(413)

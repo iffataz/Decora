@@ -133,31 +133,19 @@ def test_in_memory_count_reports_zero_once_the_window_has_passed():
 
 # ── The Upstash backend ─────────────────────────────────────────────────────
 
-class FakeSessionResponse:
-    def __init__(self, count):
-        self._count = count
-
-    def raise_for_status(self):
-        pass
-
-    def json(self):
-        return [{"result": self._count}, {"result": 1}]
-
-
 @pytest.fixture
-def upstash(monkeypatch):
-    """An UpstashBackend whose HTTP session is faked; returns it plus the posts."""
-    backend = UpstashBackend("https://fake-db.upstash.io/", "tok")
-    posts = []
+def upstash_backend():
+    """An UpstashBackend over a fake client; returns it plus the commands sent."""
+    sent = []
     counter = {"n": 0}
 
-    def fake_post(url, json=None, timeout=None):
-        counter["n"] += 1
-        posts.append({"url": url, "body": json, "timeout": timeout})
-        return FakeSessionResponse(counter["n"])
+    class FakeClient:
+        def pipeline(self, *commands):
+            sent.append(list(commands))
+            counter["n"] += 1
+            return [counter["n"], 1]
 
-    monkeypatch.setattr(backend.session, "post", fake_post)
-    return backend, posts
+    return UpstashBackend(FakeClient()), sent
 
 
 def test_upstash_is_chosen_when_credentials_are_present(monkeypatch):
@@ -179,57 +167,44 @@ def test_in_process_is_chosen_without_both_credentials(monkeypatch, env):
     assert isinstance(ratelimit.make_backend(), InMemoryBackend)
 
 
-def test_upstash_enforces_the_limit(limiter, upstash):
-    backend, _ = upstash
+def test_upstash_enforces_the_limit(limiter, upstash_backend):
+    backend, _ = upstash_backend
     rl = limiter(per_ip=2, backend=backend)
     assert [rl.check("4.4.4.4").allowed for _ in range(4)] == [True, True, False, False]
 
 
-def test_upstash_sends_incr_then_a_non_extending_expire(limiter, upstash):
+def test_upstash_sends_incr_then_a_non_extending_expire(limiter, upstash_backend):
     """EXPIRE .. NX anchors the window to its first request instead of sliding
     it forward on every hit, which would never let the window close."""
-    backend, posts = upstash
+    backend, sent = upstash_backend
     limiter(per_ip=5, per_ip_window=3600, backend=backend).check("4.4.4.4")
-    body = posts[0]["body"]
-    assert posts[0]["url"] == "https://fake-db.upstash.io/pipeline"
-    assert body[0][0] == "INCR"
-    assert body[1][0] == "EXPIRE"
-    assert body[1][1] == body[0][1], "both commands must target the same key"
-    assert body[1][2] == "3600"
-    assert body[1][3] == "NX"
-    assert posts[0]["timeout"] == ratelimit.UPSTASH_TIMEOUT
+    incr, expire = sent[0]
+    assert incr[0] == "INCR"
+    assert expire[0] == "EXPIRE"
+    assert expire[1] == incr[1], "both commands must target the same key"
+    assert expire[2] == 3600
+    assert expire[3] == "NX"
 
 
-def test_upstash_sends_the_auth_token():
-    backend = UpstashBackend("https://db.upstash.io", "secret-token")
-    assert backend.session.headers["Authorization"] == "Bearer secret-token"
-
-
-def test_a_trailing_slash_in_the_url_does_not_double_up():
-    assert UpstashBackend("https://db.upstash.io/", "t")._url.endswith(".io/pipeline")
-    assert UpstashBackend("https://db.upstash.io", "t")._url.endswith(".io/pipeline")
-
-
-@pytest.mark.parametrize("failure", [
-    ConnectionError("redis unreachable"),
-    TimeoutError("too slow"),
-    ValueError("garbage response"),
-])
-def test_a_backend_failure_fails_open(limiter, monkeypatch, failure):
+@pytest.mark.parametrize("returned", [None, [], [None, None]])
+def test_an_unusable_backend_reply_fails_open(limiter, returned):
     """A limiter outage must not take the site down. The trade is that an
     attacker who can break Redis gets past the limit."""
-    backend = UpstashBackend("https://db.upstash.io", "t")
-    monkeypatch.setattr(backend.session, "post", lambda *a, **kw: (_ for _ in ()).throw(failure))
-    rl = limiter(per_ip=1, backend=backend)
+    class DeadClient:
+        def pipeline(self, *commands):
+            return returned
+
+    rl = limiter(per_ip=1, backend=UpstashBackend(DeadClient()))
     assert all(rl.check("4.4.4.4").allowed for _ in range(5))
 
 
-def test_a_backend_failure_is_logged(limiter, monkeypatch, caplog):
-    backend = UpstashBackend("https://db.upstash.io", "t")
-    monkeypatch.setattr(backend.session, "post",
-                        lambda *a, **kw: (_ for _ in ()).throw(ConnectionError("down")))
+def test_failing_open_is_logged(limiter, caplog):
+    class DeadClient:
+        def pipeline(self, *commands):
+            return None
+
     with caplog.at_level("WARNING"):
-        limiter(per_ip=1, backend=backend).check("4.4.4.4")
+        limiter(per_ip=1, backend=UpstashBackend(DeadClient())).check("4.4.4.4")
     assert "backend unavailable" in caplog.text
 
 

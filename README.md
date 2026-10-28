@@ -4,7 +4,8 @@
 
 Decora is a Flask web app that recommends IKEA furniture for a room. Upload a room photo (or paste an image URL) and a furniture type; Gemini looks at the room, then visually compares IKEA candidates against it and returns the top matches — each with a one-sentence reason why it fits.
 
-**Live on Vercel** — a search form on the home page, results rendered directly from the submission.
+**Live on Vercel** — a search form on the home page; each search redirects to its own
+result URL that can be refreshed, bookmarked or shared.
 
 Demoing it? See the [demo guide](docs/DEMO.md) for a step-by-step walkthrough with talking points.
 
@@ -58,7 +59,7 @@ products, e.g. TV benches for a floor-lamp query).
 | Furniture data | `ikea-api` (Australia store) |
 | Data wrangling | pandas, Pydantic |
 | Frontend | Jinja2 templates, hand-written CSS (no framework) |
-| Rate limiting | In-process counters, or Upstash Redis when configured |
+| Rate limiting, result store | In-process, or Upstash Redis when configured |
 | Deployment | Vercel (serverless) |
 | Tests / lint | pytest, ruff, GitHub Actions |
 
@@ -78,8 +79,10 @@ Decora/
 │   └── error.html
 ├── apiloader.py           # IKEA search → pandas DataFrame (per-item validation, deduped)
 ├── decora.py              # Gemini vision: analyse_room(), score_products()
-├── app.py                 # Flask routes (/, /process_url)
+├── app.py                 # Flask routes (/, /process_url, /r/<token>)
 ├── ratelimit.py           # Per-IP + global search limits (in-process or Redis)
+├── resultstore.py         # Stores search outcomes so results get their own URL
+├── upstash.py             # Shared Upstash Redis REST client
 ├── tests/                 # pytest suite; no network, no API keys needed
 ├── .github/workflows/ci.yml
 ├── pyproject.toml         # ruff + pytest config
@@ -125,6 +128,52 @@ developing, put `RATE_LIMIT_PER_IP=0` and `RATE_LIMIT_GLOBAL_PER_DAY=0` in your 
 | `UPSTASH_REDIS_REST_URL` | no | Upstash Redis REST URL — makes the limits exact across instances |
 | `UPSTASH_REDIS_REST_TOKEN` | no | Token for the above |
 | `TRUST_PROXY_HEADERS` | no | `0` to ignore `X-Real-IP` / `X-Forwarded-For` when not behind Vercel |
+| `RESULT_TTL_SECONDS` | no | How long a result link stays alive (default 86400) |
+
+## Result links
+
+A search is a POST, but its result is a GET. `POST /process_url` runs the pipeline,
+stores the outcome under an unguessable token and answers **303 See Other** pointing
+at `/r/<token>`; the browser follows it with a GET and that is the page the visitor
+lands on. Three things fall out of that:
+
+- **Refresh is free and safe.** Reloading re-reads the store instead of re-submitting
+  the form, so it costs no Gemini calls and raises no "confirm resubmission" prompt.
+- **Results have an address.** The link can be bookmarked or sent to someone.
+- **A repeat search is free.** A successful outcome is also indexed by a key derived
+  from the room image and the furniture type, so running the same search again
+  redirects straight to the page already computed. The key is a hash of a small
+  thumbnail, so it is best-effort: a re-encoded copy of the same photo misses the
+  cache and simply runs again.
+
+Failures get a token too — so refreshing an error page doesn't re-run the pipeline —
+but they expire in five minutes and are never indexed by search key, because a Gemini
+outage must not be remembered as this room's answer for a day.
+
+Rate limiting applies to the POST only. `/r/<token>` is cheap and idempotent, so
+refreshing or sharing a link never consumes anyone's quota. A reused search does
+still cost a slot, since metering deliberately runs before the image fetch.
+
+### How long links last, and when they work
+
+`RESULT_TTL_SECONDS` (default 24 hours) caps both the link and the repeat-search
+reuse. It is not unlimited because stored results hold IKEA prices and ratings, which
+drift.
+
+Whether a link works at all depends on the backend, exactly as with rate limiting:
+
+- **Upstash Redis** (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`): the store
+  is shared, so links resolve from any instance and are genuinely shareable.
+- **No configuration:** the store lives in the serverless instance's memory. This is a
+  sharper limitation than it is for rate limiting, where a per-instance counter only
+  makes the limit loose — here, a redirect that lands on a different instance finds
+  nothing, and the visitor who just waited 20 seconds sees "that link has expired". A
+  shared link only works for whoever is routed to the instance holding it.
+
+So: add Upstash if result links need to work reliably. The miss is handled gracefully
+either way — the expired page explains itself and links back to a fresh search — and
+a storage outage degrades the app to that page rather than failing a search that
+already succeeded.
 
 ## Rate limiting
 
@@ -170,7 +219,7 @@ use the socket address only.
 
 ```bash
 pip install -r requirements-dev.txt
-pytest          # 301 tests, ~5 seconds
+pytest          # 396 tests, ~8 seconds
 ruff check .
 ```
 
@@ -189,6 +238,8 @@ What it covers, roughly in order of how badly a regression would hurt:
 | Catalogue | `test_apiloader.py` | A change in IKEA's response shape turning into a 500, or silent whole-batch validation failure |
 | Rate limiting | `test_ratelimit.py` | Limits not holding, counters leaking memory, or a limiter outage taking the site down |
 | Routes | `test_app.py` | Leaking internals in an error page, NaN rendering as "nan", or spend past the rate limit |
+| Result links | `test_resultstore.py` | A link resolving to the wrong search, a cached outage, or the in-process store growing without bound |
+| Redis transport | `test_upstash.py` | A storage outage raising instead of degrading |
 
 CI runs ruff once and the suite on Python 3.10 (the floor the dependencies allow)
 and 3.13, on every push to `main`, every pull request, and on demand.

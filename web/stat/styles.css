@@ -502,6 +502,13 @@ p {
     text-align: center;
 }
 
+.results-footer__share {
+    margin: 18px 0 0;
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
 /* ── Message page (errors) ────────────────────────────── */
 .message-page {
     padding: 60px 0;

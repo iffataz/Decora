@@ -78,7 +78,9 @@ Colour and size variants are included, duplicates are removed by product id, and
 
 ### 5. Results page
 
-**What they see:** up to 4 product cards (`web/results.html`), each with image, name, **"9/10 match"**, the reason, the AU$ price and the IKEA star rating. Each links to the IKEA product page.
+**What they see:** the browser lands on a `/r/<token>` URL showing up to 4 product cards (`web/results.html`), each with image, name, **"9/10 match"**, the reason, the AU$ price and the IKEA star rating. Each links to the IKEA product page.
+
+**What to say:** "Notice the URL. The search was a POST, but the result has its own address — refresh it, bookmark it, or send it to someone, and it costs nothing to load. Run the same search again and it lands right back here without paying for a second set of AI calls." 
 
 **Behind the scenes:**
 - **Filtering:** keeps products scoring 6 or higher, best first.
@@ -105,7 +107,7 @@ Colour and size variants are included, duplicates are removed by product id, and
 
 ## If someone asks about testing
 
-`pytest` runs 301 tests in about five seconds with no network and no API key —
+`pytest` runs 396 tests in about five seconds with no network and no API key —
 Gemini, IKEA and image fetching are all faked. CI runs them plus `ruff` on Python
 3.10 and 3.13 for every push and pull request. The tests worth mentioning are the
 ones around the index remapping in `sender.py`: if a score ever attached to the

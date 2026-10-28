@@ -34,12 +34,11 @@ import threading
 import time
 from dataclasses import dataclass
 
-import requests
+import upstash
 
 logger = logging.getLogger(__name__)
 
 GLOBAL_WINDOW = 86_400
-UPSTASH_TIMEOUT = 3
 
 # Defaults, overridable per Limiter and from the environment. 10/hour/IP leaves
 # room for a demo or a few rooms in a row while still capping one visitor at 20
@@ -115,32 +114,26 @@ class InMemoryBackend:
 class UpstashBackend:
     """Fixed-window counters in Upstash Redis, shared across instances."""
 
-    def __init__(self, url: str, token: str) -> None:
-        self._url = url.rstrip("/") + "/pipeline"
-        self.session = requests.Session()
-        self.session.headers["Authorization"] = f"Bearer {token}"
+    def __init__(self, client) -> None:
+        self._client = client
 
     def incr(self, key: str, ttl: int) -> "int | None":
         # EXPIRE .. NX sets the TTL only if the key has none, so the window is
         # anchored to its first request instead of sliding forward on each hit.
-        body = [["INCR", key], ["EXPIRE", key, str(ttl), "NX"]]
-        try:
-            resp = self.session.post(self._url, json=body, timeout=UPSTASH_TIMEOUT)
-            resp.raise_for_status()
-            return int(resp.json()[0]["result"])
-        except Exception as e:
+        results = self._client.pipeline(["INCR", key], ["EXPIRE", key, ttl, "NX"])
+        if not results or results[0] is None:
             # Fail open: see the module docstring.
-            logger.warning("rate limit backend unavailable, allowing request: %s", e)
+            logger.warning("rate limit backend unavailable, allowing request")
             return None
+        return int(results[0])
 
 
 def make_backend():
     """Upstash when its credentials are set, otherwise in-process counters."""
-    url = os.environ.get("UPSTASH_REDIS_REST_URL")
-    token = os.environ.get("UPSTASH_REDIS_REST_TOKEN")
-    if url and token:
+    client = upstash.from_env()
+    if client is not None:
         logger.info("rate limiting via Upstash Redis (shared counters)")
-        return UpstashBackend(url, token)
+        return UpstashBackend(client)
     logger.info(
         "rate limiting in-process: limits apply per serverless instance, not globally. "
         "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for exact limits."

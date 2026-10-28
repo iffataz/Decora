@@ -17,6 +17,21 @@ import io  # noqa: E402
 import pytest  # noqa: E402
 from PIL import Image  # noqa: E402
 
+import resultstore  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def fresh_result_store(monkeypatch):
+    """Give every test its own result store.
+
+    Autouse on purpose: the store indexes successful searches by image and
+    furniture type, so without this a second test posting the same photo would
+    be served the first test's stored result and never run the pipeline.
+    """
+    store = resultstore.ResultStore(backend=resultstore.InMemoryBackend())
+    monkeypatch.setattr(resultstore, "_default", store)
+    return store
+
 
 @pytest.fixture
 def room_image():
